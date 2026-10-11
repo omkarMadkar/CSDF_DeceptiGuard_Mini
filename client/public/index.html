@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeceptiGuard | Insider Threat Detection Using Deception</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/chart.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="light-theme">
+  <!-- Top Compliance Notice -->
+  <div class="compliance-banner">
+    <div class="banner-content">
+      <div class="compliance-left">
+        <span class="shield-badge">🛡️ DEFENSIVE LAB SIMULATION</span>
+        <span class="compliance-text">ISO/IEC 27037:2012 & NIST SP 800-86 Cryptographic Evidentiary Chain-of-Custody</span>
+      </div>
+      <div class="compliance-right">
+        <span class="live-pill" id="ws-status"><span class="pulse-dot"></span> SOC CONNECTED</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Primary Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="brand-logo">
+        <span class="logo-icon">⚡</span>
+        <span class="logo-title">DECEPTI<span class="accent-text">GUARD</span></span>
+      </div>
+      <span class="tagline">Insider Threat Detection via Active Deception</span>
+    </div>
+
+    <!-- Navigation Bar -->
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-tab="soc-tab">
+        <span class="tab-icon">📊</span> SOC Dashboard
+      </button>
+      <button class="nav-tab" data-tab="portal-tab">
+        <span class="tab-icon">📁</span> Employee Portal
+      </button>
+      <button class="nav-tab" data-tab="forensics-tab">
+        <span class="tab-icon">🔍</span> Digital Forensics
+      </button>
+      <button class="nav-tab" data-tab="incidents-tab">
+        <span class="tab-icon">🚨</span> Incidents (<span id="incident-badge-count">2</span>)
+      </button>
+      <button class="nav-tab" data-tab="deception-tab">
+        <span class="tab-icon">🍯</span> Deception Manager
+      </button>
+      <button class="nav-tab" data-tab="simulator-tab">
+        <span class="tab-icon">⚡</span> Attack Simulator
+      </button>
+    </nav>
+
+    <!-- Header Right / Controls -->
+    <div class="header-right">
+      <!-- Interactive Theme Toggle -->
+      <button class="btn btn-secondary btn-sm" id="btn-theme-toggle" title="Switch Theme (Light / Dark)">
+        <span id="theme-icon">☀️</span> <span id="theme-label">Light Theme</span>
+      </button>
+      <!-- Sound Toggle -->
+      <button class="btn btn-secondary btn-sm" id="btn-sound-toggle" title="Toggle Threat Sound Notification">
+        <span id="sound-icon">🔊</span> <span id="sound-label">Audio On</span>
+      </button>
+      <!-- User Persona -->
+      <div class="user-chip" id="btn-switch-user" title="Click to Switch User Persona">
+        <span class="role-badge" id="current-user-role">admin</span>
+        <span class="username-text" id="current-username">admin</span>
+        <span class="chevron">▾</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="main-container">
+    
+    <!-- ================= VIEW 1: SOC DASHBOARD ================= -->
+    <section id="soc-tab" class="tab-content active">
+      <!-- KPI Metric Cards -->
+      <div class="kpi-grid">
+        <div class="kpi-card highlight-coral">
+          <div class="kpi-label">TOTAL THREAT ALERTS</div>
+          <div class="kpi-value text-coral" id="kpi-total-alerts">4</div>
+          <div class="kpi-sub">Rule Breaches & Decoy Triggers</div>
+        </div>
+        <div class="kpi-card highlight-gold">
+          <div class="kpi-label">CRITICAL SEVERITY</div>
+          <div class="kpi-value text-coral glow" id="kpi-critical-alerts">3</div>
+          <div class="kpi-sub">Autonomous Incident Triggers</div>
+        </div>
+        <div class="kpi-card highlight-navy">
+          <div class="kpi-label">ACTIVE INVESTIGATIONS</div>
+          <div class="kpi-value text-gold" id="kpi-open-incidents">2</div>
+          <div class="kpi-sub">Open Forensic Case Files</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">DECEPTION COVERAGE</div>
+          <div class="kpi-value text-navy" id="kpi-deception-hit">2 / 10</div>
+          <div class="kpi-sub">Triggered Lures / Armed Decoys</div>
+        </div>
+        <div class="kpi-card highlight-emerald">
+          <div class="kpi-label">MEAN TIME TO DETECT</div>
+          <div class="kpi-value text-emerald" id="kpi-mttd">&lt; 1.45 s</div>
+          <div class="kpi-sub">Sub-2 Second Lab Benchmark</div>
+        </div>
+      </div>
+
+      <!-- Interactive Charts Row -->
+      <div class="charts-row">
+        <div class="panel chart-panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="icon">🍩</span> Threat Vector Breakdown
+            </div>
+            <span class="badge gold">ACTIVE DECEPTION METRICS</span>
+          </div>
+          <div class="chart-canvas-wrap">
+            <canvas id="chart-threat-vectors"></canvas>
+          </div>
+        </div>
+
+        <div class="panel chart-panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="icon">📈</span> 24-Hour Telemetry & Threat Spikes
+            </div>
+            <span class="badge coral">TEMPORAL CORRELATION</span>
+          </div>
+          <div class="chart-canvas-wrap">
+            <canvas id="chart-hourly-trend"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dashboard Split Layout -->
+      <div class="dashboard-split">
+        <!-- Live Alert Feed -->
+        <div class="panel alert-feed-panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="icon">🚨</span> Real-Time SOC Alert Feed
+            </div>
+            <!-- Alert Filter Pills -->
+            <div class="filter-pills" id="alert-filters">
+              <button class="pill-btn active" data-filter="ALL">All Alerts (<span id="filter-count-all">4</span>)</button>
+              <button class="pill-btn coral" data-filter="CRITICAL">🚨 Critical Only</button>
+              <button class="pill-btn gold" data-filter="R1">🍯 Honeyfiles (R1)</button>
+              <button class="pill-btn" data-filter="R3">🔑 Canaries (R3)</button>
+              <button class="pill-btn" data-filter="R4">🌙 Off-Hours (R4)</button>
+            </div>
+          </div>
+          <div class="table-container">
+            <table class="soc-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Suspect</th>
+                  <th>Target Decoy Asset</th>
+                  <th>Severity</th>
+                  <th>Rules Fired</th>
+                  <th>Risk Score</th>
+                  <th>Forensic Block</th>
+                </tr>
+              </thead>
+              <tbody id="alerts-table-body">
+                <tr><td colspan="7" class="empty-state">Loading threat feed...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Risk Leaderboard & Heatmap Column -->
+        <div class="side-column">
+          <!-- Risk Leaderboard -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title"><span class="icon">⚠️</span> Insider Risk Leaderboard</div>
+              <span class="badge gold">10%/HR DECAY</span>
+            </div>
+            <div class="table-container">
+              <table class="soc-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Dept</th>
+                    <th>Risk</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="leaderboard-table-body">
+                  <tr><td colspan="5" class="empty-state">Loading leaderboard...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 24-Hour Access Heatmap Grid -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title"><span class="icon">🕒</span> Access Heatmap Matrix</div>
+            </div>
+            <div class="heatmap-container" id="access-heatmap-grid">
+              <!-- Dynamically populated 24 hours -->
+            </div>
+            <div class="heatmap-legend">
+              <span class="legend-item"><span class="box daytime"></span> Business Hours (09:00 - 19:00)</span>
+              <span class="legend-item"><span class="box afterhours"></span> Off-Hours (Rule R4 Trapped)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VIEW 2: EMPLOYEE PORTAL ================= -->
+    <section id="portal-tab" class="tab-content">
+      <div class="panel portal-panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="icon">🏢</span> Acme Corp Internal Knowledge Repository & File Explorer
+          </div>
+          <div class="portal-search-box">
+            <input type="text" id="portal-search-input" placeholder="Search documents, policies, or canary tokens..." />
+            <button class="btn btn-primary" id="btn-portal-search">Search</button>
+          </div>
+        </div>
+
+        <!-- Department Filter Chips -->
+        <div class="dept-filter-bar">
+          <span class="filter-label">Quick Department Filter:</span>
+          <button class="dept-chip active" data-dept="ALL">All Documents</button>
+          <button class="dept-chip" data-dept="HR">Human Resources</button>
+          <button class="dept-chip" data-dept="Finance">Finance</button>
+          <button class="dept-chip" data-dept="Engineering">Engineering</button>
+          <button class="dept-chip" data-dept="IT">IT Infrastructure</button>
+          <button class="dept-chip" data-dept="Compliance">Compliance</button>
+        </div>
+
+        <div class="portal-sub-banner">
+          <span>⚠️ <b>Acceptable Use Policy Notice:</b> All document access, queries, and file downloads are monitored and cryptographically audited under ISO 27001 policies.</span>
+        </div>
+
+        <div class="table-container">
+          <table class="soc-table">
+            <thead>
+              <tr>
+                <th>Document Name</th>
+                <th>Directory Path</th>
+                <th>Department</th>
+                <th>Classification</th>
+                <th>Size</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="portal-files-body">
+              <tr><td colspan="6" class="empty-state">Loading repository files...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VIEW 3: DIGITAL FORENSICS ================= -->
+    <section id="forensics-tab" class="tab-content">
+      <div class="panel forensics-hero">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="icon">🔗</span> Cryptographic SHA-256 Evidentiary Hash Chain & Tamper Verification
+          </div>
+          <div class="action-buttons">
+            <button class="btn btn-primary" id="btn-verify-chain">
+              <span>🛡️</span> Verify Evidentiary Chain
+            </button>
+            <button class="btn btn-danger" id="btn-tamper-demo">
+              <span>⚠️</span> Simulate DB Tampering (Demo)
+            </button>
+            <button class="btn btn-secondary" id="btn-restore-chain">
+              <span>🔄</span> Re-Synchronize Chain
+            </button>
+          </div>
+        </div>
+
+        <!-- Verification Banner Display -->
+        <div class="verification-status-card" id="verification-result-card">
+          <div class="status-indicator intact">
+            <span class="status-icon">✓</span>
+            <div class="status-text">
+              <h4 id="verif-title">CHAIN INTEGRITY: PRISTINE & VALID (6 BLOCKS VERIFIED)</h4>
+              <p id="verif-desc">All historical evidence blocks mathematically tied with recursive SHA-256 digests. Zero alterations detected.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mathematical Chain Formulation Box -->
+        <div class="math-box">
+          <code><b>ISO/IEC 27037:2012 Formulation:</b> H<sub>0</sub> = SHA256('GENESIS_BLOCK') | H<sub>n</sub> = SHA256( H<sub>n-1</sub> || CanonicalJSON(Payload<sub>n</sub>) || Timestamp<sub>n</sub> )</code>
+        </div>
+
+        <!-- Chain of Custody Log Table -->
+        <div class="custody-section">
+          <div class="custody-header-wrap">
+            <h3 class="section-heading">ISO/IEC 27037:2012 Evidentiary Chain of Custody Audit Log</h3>
+            <span class="badge gold">NON-REPUDIATION AUDIT TRAIL</span>
+          </div>
+          <div class="table-container">
+            <table class="soc-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Investigator / Actor</th>
+                  <th>Custodial Action</th>
+                  <th>Audit Details</th>
+                  <th>Evidence SHA-256 Digest</th>
+                </tr>
+              </thead>
+              <tbody id="custody-log-body">
+                <tr><td colspan="5" class="empty-state">Loading custody records...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VIEW 4: INCIDENTS ================= -->
+    <section id="incidents-tab" class="tab-content">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="icon">🚨</span> Forensics Incident Case Management & Multi-Format Exporter
+          </div>
+          <span class="badge coral">CASE MANAGEMENT SYSTEM</span>
+        </div>
+        <div class="table-container">
+          <table class="soc-table">
+            <thead>
+              <tr>
+                <th>Case ID</th>
+                <th>Incident Title</th>
+                <th>Suspect User</th>
+                <th>Severity</th>
+                <th>Status</th>
+                <th>MITRE ATT&CK</th>
+                <th>Created</th>
+                <th>Actions & Export</th>
+              </tr>
+            </thead>
+            <tbody id="incidents-table-body">
+              <tr><td colspan="8" class="empty-state">Loading active incidents...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VIEW 5: DECEPTION MANAGER ================= -->
+    <section id="deception-tab" class="tab-content">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="icon">🍯</span> Active Deception Asset Catalog & Trigger Telemetry
+          </div>
+          <span class="feed-badge">ZERO REAL DATA — SYNTHETIC LAB TRAPS</span>
+        </div>
+        <div class="table-container">
+          <table class="soc-table">
+            <thead>
+              <tr>
+                <th>Decoy Type</th>
+                <th>Decoy Asset Name</th>
+                <th>Location / Virtual Path</th>
+                <th>Canary Token / Value</th>
+                <th>Severity</th>
+                <th>Status</th>
+                <th>Trigger Count</th>
+                <th>Last Triggered</th>
+                <th>Toggle</th>
+              </tr>
+            </thead>
+            <tbody id="decoys-table-body">
+              <tr><td colspan="9" class="empty-state">Loading deception inventory...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VIEW 6: ATTACK SIMULATOR ================= -->
+    <section id="simulator-tab" class="tab-content">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="icon">⚡</span> Automated Insider Threat Scenario Simulation Suite
+          </div>
+          <span class="feed-badge">LAB EVALUATION HARNESS</span>
+        </div>
+
+        <p class="sim-intro">
+          Execute scripted insider attack scenarios to validate detection rules, observe live SOC alerts, and measure <b>Mean Time to Detect (MTTD)</b> with 0% false positives.
+        </p>
+
+        <div class="scenario-grid">
+          <!-- S1 -->
+          <div class="scenario-card">
+            <div class="scenario-header">
+              <span class="badge coral">SCENARIO S1</span>
+              <h4>Curious Employee Honeyfile Access</h4>
+            </div>
+            <p><b>Actor:</b> <code>intern_dave</code> (Engineering)</p>
+            <p><b>Action:</b> Probes <code>/HR/Compensation/Salary_Revision_2026_CONFIDENTIAL.xlsx</code>.</p>
+            <p><b>Expected Detection:</b> <b>Rule R1 & R6</b> &rarr; CRITICAL (+120 pts).</p>
+            <button class="btn btn-primary btn-block btn-run-sim" data-scenario="S1">Execute Scenario S1</button>
+          </div>
+
+          <!-- S2 -->
+          <div class="scenario-card">
+            <div class="scenario-header">
+              <span class="badge coral">SCENARIO S2</span>
+              <h4>Disgruntled Admin Credential Probing</h4>
+            </div>
+            <p><b>Actor:</b> <code>admin.backup</code> (Decoy Account)</p>
+            <p><b>Action:</b> Logs into decoy admin account & calls <code>/api/v1/admin/export-all</code>.</p>
+            <p><b>Expected Detection:</b> <b>Rule R2 & R1</b> &rarr; Dual CRITICAL (+190 pts).</p>
+            <button class="btn btn-primary btn-block btn-run-sim" data-scenario="S2">Execute Scenario S2</button>
+          </div>
+
+          <!-- S3 -->
+          <div class="scenario-card">
+            <div class="scenario-header">
+              <span class="badge gold">SCENARIO S3</span>
+              <h4>After-Hours Bulk Data Exfiltration</h4>
+            </div>
+            <p><b>Actor:</b> <code>eng_carol</code> (Engineer)</p>
+            <p><b>Action:</b> Bulk downloads 25 source code archives at 02:30 AM.</p>
+            <p><b>Expected Detection:</b> <b>Rule R4 & R5</b> &rarr; HIGH (+45 pts).</p>
+            <button class="btn btn-primary btn-block btn-run-sim" data-scenario="S3">Execute Scenario S3</button>
+          </div>
+
+          <!-- S4 -->
+          <div class="scenario-card">
+            <div class="scenario-header">
+              <span class="badge coral">SCENARIO S4</span>
+              <h4>Honeytoken Canary Credential Replay</h4>
+            </div>
+            <p><b>Actor:</b> <code>fin_bob</code> (Finance)</p>
+            <p><b>Action:</b> Injects stolen canary key <code>canary_sec_key_99x88a77b</code> into search.</p>
+            <p><b>Expected Detection:</b> <b>Rule R3</b> &rarr; CRITICAL (+100 pts).</p>
+            <button class="btn btn-primary btn-block btn-run-sim" data-scenario="S4">Execute Scenario S4</button>
+          </div>
+
+          <!-- S5 -->
+          <div class="scenario-card">
+            <div class="scenario-header">
+              <span class="badge emerald">SCENARIO S5 (BENIGN)</span>
+              <h4>Legitimate Daytime Employee Workflow</h4>
+            </div>
+            <p><b>Actor:</b> <code>hr_alice</code> (HR)</p>
+            <p><b>Action:</b> Views authorized <code>Employee_Handbook_2026.pdf</code> at 11:00 AM.</p>
+            <p><b>Expected Detection:</b> <b>0 ALERTS</b> (0% False-Positive Baseline Verification).</p>
+            <button class="btn btn-secondary btn-block btn-run-sim" data-scenario="S5">Execute Scenario S5</button>
+          </div>
+        </div>
+
+        <!-- Simulation Output Terminal -->
+        <div class="sim-terminal">
+          <div class="terminal-header">
+            <span>💻 SIMULATION EXECUTION CONSOLE</span>
+            <span id="sim-status-label">Ready</span>
+          </div>
+          <pre id="sim-output-pre">// Output will stream here when a scenario is executed...</pre>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Switch Persona Modal -->
+  <div class="modal-backdrop" id="user-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Switch Lab Persona</h3>
+        <button class="btn-close" id="btn-close-modal">&times;</button>
+      </div>
+      <p class="modal-desc">Select a simulated corporate user to log in as:</p>
+      <div class="persona-list">
+        <button class="persona-btn" data-user="admin">
+          <span class="p-role badge navy">IT ADMIN</span>
+          <b>admin</b> (Full Access & SOC Lead)
+        </button>
+        <button class="persona-btn" data-user="hr_alice">
+          <span class="p-role badge gold">HR</span>
+          <b>hr_alice</b> (Legitimate HR Specialist - Benign baseline)
+        </button>
+        <button class="persona-btn" data-user="fin_bob">
+          <span class="p-role badge gold">FINANCE</span>
+          <b>fin_bob</b> (Finance Analyst - Canary token target)
+        </button>
+        <button class="persona-btn" data-user="eng_carol">
+          <span class="p-role badge gold">ENGINEERING</span>
+          <b>eng_carol</b> (Senior Kernel Developer - Off-hours exfil)
+        </button>
+        <button class="persona-btn" data-user="intern_dave">
+          <span class="p-role badge gold">INTERN</span>
+          <b>intern_dave</b> (Engineering Intern - Honeyfile intruder)
+        </button>
+        <button class="persona-btn" data-user="auditor_eve">
+          <span class="p-role badge navy">AUDITOR</span>
+          <b>auditor_eve</b> (Compliance Auditor - ISO 27037 inspector)
+        </button>
+        <button class="persona-btn decoy-user" data-user="admin.backup">
+          <span class="p-role badge coral">DECOY LURE</span>
+          <b>admin.backup</b> [TRAPS RULE R2 - CRITICAL TRIGGER]
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Document Viewer Modal with Formatted Spreadsheet & Preview -->
+  <div class="modal-backdrop" id="doc-modal">
+    <div class="modal-content doc-modal-content">
+      <div class="modal-header">
+        <h3 id="doc-modal-title">Document Viewer</h3>
+        <button class="btn-close" id="btn-close-doc-modal">&times;</button>
+      </div>
+      <div class="doc-body">
+        <div class="doc-meta-bar" id="doc-modal-meta">Path: / | Sensitivity: Internal</div>
+        <div id="doc-modal-preview-container">
+          <pre class="doc-text" id="doc-modal-content">Loading file content...</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Incident Case Quick Triage Modal -->
+  <div class="modal-backdrop" id="incident-triage-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="triage-modal-title">Forensic Case Quick Triage</h3>
+        <button class="btn-close" id="btn-close-triage-modal">&times;</button>
+      </div>
+      <div class="triage-body">
+        <input type="hidden" id="triage-incident-id" />
+        <div class="form-group">
+          <label>Update Investigation Status:</label>
+          <select id="triage-status-select" class="form-select">
+            <option value="Open">Open</option>
+            <option value="Investigating">Investigating</option>
+            <option value="Contained">Contained</option>
+            <option value="Closed">Closed</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Add Forensic Investigator Note:</label>
+          <textarea id="triage-note-input" class="form-textarea" placeholder="Record interview findings, workstation isolation steps, or chain of custody notes..."></textarea>
+        </div>
+        <button class="btn btn-primary btn-block" id="btn-save-triage">Save Status & Sign Custody Log</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

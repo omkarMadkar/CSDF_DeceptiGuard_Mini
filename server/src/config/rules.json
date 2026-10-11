@@ -1,0 +1,66 @@
+[
+  {
+    "id": "R1",
+    "name": "Decoy Asset Interaction",
+    "points": 100,
+    "severity": "CRITICAL",
+    "mitreTechnique": "T1083 / T1005",
+    "description": "User accessed or downloaded an unauthorized deception honeyfile."
+  },
+  {
+    "id": "R2",
+    "name": "Decoy Account Authentication",
+    "points": 90,
+    "severity": "CRITICAL",
+    "mitreTechnique": "T1078.002",
+    "description": "Authentication attempt detected on a dormant decoy administrator account."
+  },
+  {
+    "id": "R3",
+    "name": "Honeytoken Canary Usage",
+    "points": 100,
+    "severity": "CRITICAL",
+    "mitreTechnique": "T1552 / T1110",
+    "description": "Synthetic honeytoken (canary API key / DB URI) was submitted in a request."
+  },
+  {
+    "id": "R4",
+    "name": "After-Hours Privileged Access",
+    "points": 15,
+    "severity": "MEDIUM",
+    "mitreTechnique": "T1078",
+    "description": "Sensitive folder access executed outside normal business hours (09:00 - 19:00)."
+  },
+  {
+    "id": "R5",
+    "name": "Bulk Download Staging",
+    "points": 30,
+    "severity": "HIGH",
+    "mitreTechnique": "T1005 / T1567",
+    "description": "Rapid bulk download of more than 10 files in a rolling 5-minute window."
+  },
+  {
+    "id": "R6",
+    "name": "Cross-Department Role Violation",
+    "points": 20,
+    "severity": "MEDIUM",
+    "mitreTechnique": "T1083",
+    "description": "User probed files belonging to a department outside their assigned RBAC role."
+  },
+  {
+    "id": "R7",
+    "name": "Failed Login Threshold Exceeded",
+    "points": 10,
+    "severity": "LOW",
+    "mitreTechnique": "T1110",
+    "description": "Multiple failed authentication attempts detected within a 10-minute window."
+  },
+  {
+    "id": "R8",
+    "name": "Rapid Directory Enumeration",
+    "points": 25,
+    "severity": "HIGH",
+    "mitreTechnique": "T1083",
+    "description": "Rapid browsing and enumeration across multiple departmental directories."
+  }
+]
