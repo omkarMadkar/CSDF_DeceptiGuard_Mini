@@ -10,10 +10,10 @@ class SimController {
     try {
       if (scenarioId === 'S1') {
         // S1 Curious employee: opens Salary_Revision_2026_CONFIDENTIAL.xlsx
-        const user = await User.findOne({ username: 'intern_dave' });
+        const user = await User.findOne({ username: 'samarth' });
         const rawEvent = await Event.create({
           userId: user?._id,
-          username: 'intern_dave',
+          username: 'samarth',
           role: 'intern',
           action: 'FILE_VIEW',
           target: '/HR/Compensation/Salary_Revision_2026_CONFIDENTIAL.xlsx',
@@ -68,13 +68,13 @@ class SimController {
 
       if (scenarioId === 'S3') {
         // S3 Data exfiltrator: after-hours bulk download of 25 files
-        const user = await User.findOne({ username: 'eng_carol' });
+        const user = await User.findOne({ username: 'aniket' });
         const afterHoursTs = new Date();
         afterHoursTs.setHours(2, 30, 0, 0); // 02:30 AM
 
         const rawEvent = await Event.create({
           userId: user?._id,
-          username: 'eng_carol',
+          username: 'aniket',
           role: 'engineer',
           action: 'FILE_DOWNLOAD',
           target: '/Engineering/SourceCode/Kernel_Drivers_Archive.tar.gz',
@@ -95,10 +95,10 @@ class SimController {
 
       if (scenarioId === 'S4') {
         // S4 Credential thief: submits canary API key
-        const user = await User.findOne({ username: 'fin_bob' });
+        const user = await User.findOne({ username: 'pranav' });
         const rawEvent = await Event.create({
           userId: user?._id,
-          username: 'fin_bob',
+          username: 'pranav',
           role: 'finance',
           action: 'HONEYTOKEN_SUBMIT',
           target: '/portal/search?q=canary_sec_key_99x88a77b',
@@ -118,13 +118,13 @@ class SimController {
 
       if (scenarioId === 'S5') {
         // S5 Benign normal user: regular work, no alerts
-        const user = await User.findOne({ username: 'hr_alice' });
+        const user = await User.findOne({ username: 'mugdha' });
         const dayTs = new Date();
         dayTs.setHours(11, 0, 0, 0); // 11:00 AM
 
         const rawEvent = await Event.create({
           userId: user?._id,
-          username: 'hr_alice',
+          username: 'mugdha',
           role: 'hr',
           action: 'FILE_VIEW',
           target: '/HR/Policies/Employee_Handbook_2026.pdf',

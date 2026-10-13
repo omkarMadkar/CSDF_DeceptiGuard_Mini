@@ -176,7 +176,7 @@ function setupAuth() {
     });
   });
 
-  switchUser('admin', false);
+  switchUser('onkar', false);
 }
 
 async function switchUser(username, notify = true) {
@@ -235,6 +235,9 @@ async function refreshSocDashboard() {
     document.getElementById('kpi-open-incidents').textContent = stats.openIncidents || 0;
     document.getElementById('kpi-deception-hit').textContent = `${stats.triggeredDecoys || 2} / ${stats.totalDecoys || 10}`;
     document.getElementById('incident-badge-count').textContent = stats.openIncidents || 0;
+    if (document.getElementById('kpi-mttd')) {
+      document.getElementById('kpi-mttd').textContent = stats.mttdMs ? (stats.mttdMs + ' ms') : '< 50 ms';
+    }
 
     // Alerts
     const alertsRes = await fetch('/api/soc/alerts');
@@ -367,7 +370,7 @@ function renderCharts(alerts, heatmap) {
   const ctxTrend = document.getElementById('chart-hourly-trend');
   if (ctxTrend && heatmap && heatmap.length > 0) {
     const labels = heatmap.map(h => h.hour);
-    const dataVals = heatmap.map(h => h.count > 0 ? h.count : Math.floor(Math.random() * 4));
+    const dataVals = heatmap.map(h => h.count || 0);
 
     if (trendChart) trendChart.destroy();
     trendChart = new Chart(ctxTrend, {
@@ -590,7 +593,7 @@ async function verifyHashChain() {
 
 async function tamperDemo() {
   try {
-    const res = await fetch('/api/forensics/tamper-demo', { method: 'POST' });
+    const res = await fetch('/api/forensics/tamper-demo', { method: 'POST', headers: getAuthHeaders() });
     const data = await res.json();
     showToast(`Tampered with sequence #${data.tamperedSeq}. Now click 'Verify Evidentiary Chain' to see break!`, 'HIGH');
     await verifyHashChain();
@@ -601,7 +604,7 @@ async function tamperDemo() {
 
 async function restoreHashChain() {
   try {
-    await fetch('/api/forensics/restore-chain', { method: 'POST' });
+    await fetch('/api/forensics/restore-chain', { method: 'POST', headers: getAuthHeaders() });
     showToast('Chain re-synchronized. All hashes restored.', 'LOW');
     await verifyHashChain();
   } catch (err) {

@@ -131,12 +131,13 @@ Every user action generates an event document that passes through this determini
 ## 🔒 Digital Forensics Rigor (ISO/IEC 27037 & NIST SP 800-86)
 
 ### 1. Cryptographic SHA-256 Recursive Hash Chain
-Each evidence record $n$ is mathematically chained to its predecessor in an append-only collection where no update or delete APIs exist:
-$$\text{Hash}_0 = \text{SHA256}(\text{"GENESIS\_EVIDENCE\_ROOT\_DECEPTIGUARD\_2026"})$$
+Each evidence record $n$ is mathematically chained to its predecessor in an append-only collection where no update or delete APIs exist in production mode:
+$$\text{Hash}_0 = \text{SHA256}(\text{"0"}^{64} + \text{CanonicalJSON}(\text{GenesisPayload}) + \text{Timestamp}_0)$$
 $$\text{Hash}_n = \text{SHA256}(\text{Hash}_{n-1} + \text{CanonicalJSON}(\text{Payload}_n) + \text{Timestamp}_n)$$
+*(Where the Genesis Root Anchor $\text{Hash}_{-1} = \text{"0"}^{64}$ and GenesisPayload contains $\text{"GENESIS\_EVIDENCE\_ROOT\_DECEPTIGUARD\_2026"})$*
 
-* **Tamper Verification (`GET /api/forensics/verify`):** Traverses the ledger, recomputes each block digest, and detects any broken link.
-* **Tamper Demo Button (`POST /api/forensics/tamper-demo`):** Mutates an older DB record directly to demonstrate live tamper detection to evaluators.
+* **Tamper Verification (`GET /api/forensics/verify`):** Traverses the ledger from Genesis Block #0 to current head, recomputes each block digest, and detects any broken link.
+* **Tamper Demo & Restore Endpoints (`POST /api/forensics/tamper-demo` & `/restore-chain`):** Laboratory-only diagnostic tools (protected by authentication) that simulate direct database tampering on Block #1 to demonstrate mathematical break detection live to examiners.
 
 ### 2. ISO/IEC 27037 Chain of Custody
 All investigative operations (viewing incidents, transitioning status, adding notes, exporting files) are logged in `custody_log` with the actor's ID, timestamp, and the **SHA-256 checksum of any exported report**.
@@ -147,11 +148,11 @@ All investigative operations (viewing incidents, transitioning status, adding no
 
 | Scenario | Persona | Scripted Action | Firing Rules | Outcome |
 | :---: | :--- | :--- | :--- | :--- |
-| **S1** | **Curious Employee** (`intern_dave`) | Opens `Salary_Revision_2026_CONFIDENTIAL.xlsx` | **R1** (+100), **R6** (+20) | Instant **CRITICAL** alert, incident opened, session flagged. |
-| **S2** | **Disgruntled Admin** (`admin_rogue`) | Logs in as `admin.backup`, calls `/api/v1/admin/export-all` | **R2** (+90), **R1** (+100) | Dual **CRITICAL** alerts; immediate containment. |
-| **S3** | **Data Exfiltrator** (`eng_carol`) | Bulk downloads 25 source code packages at 02:30 AM | **R4** (+15), **R5** (+30) | Score = 70 (**HIGH**); timeline flag on heatmap. |
-| **S4** | **Credential Thief** (`fin_bob`) | Submits fake canary API key found in honeyfile | **R3** (+100) | Instant **CRITICAL** alert; canary signature isolated. |
-| **S5** | **Benign User** (`hr_alice`) | Normal daytime work in authorized HR folders | *None* (Score = 0) | **Zero alerts generated (0% False Positive Rate).** |
+| **S1** | **Curious Employee** (`samarth`) | Opens `Salary_Revision_2026_CONFIDENTIAL.xlsx` | **R1** (+100), **R6** (+20) | Instant **CRITICAL** alert, incident opened, session flagged. |
+| **S2** | **Disgruntled Admin** (`admin.backup`) | Logs in as `admin.backup`, calls `/api/v1/admin/export-all` | **R2** (+90), **R1** (+100) | Dual **CRITICAL** alerts; immediate containment. |
+| **S3** | **Data Exfiltrator** (`aniket`) | Bulk downloads 25 source code packages at 02:30 AM | **R4** (+15), **R5** (+30) | Score = 70 (**HIGH**); timeline flag on heatmap. |
+| **S4** | **Credential Thief** (`pranav`) | Submits fake canary API key found in honeyfile | **R3** (+100) | Instant **CRITICAL** alert; canary signature isolated. |
+| **S5** | **Benign User** (`mugdha`) | Normal daytime work in authorized HR folders | *None* (Score = 0) | **Zero alerts generated (0% False Positive Rate).** |
 
 ---
 
@@ -170,12 +171,18 @@ All investigative operations (viewing incidents, transitioning status, adding no
 
 | Username | Department | Role | Purpose / Behavioral Role |
 | :--- | :--- | :--- | :--- |
-| **`admin`** | IT | admin | SOC Lead / Security Investigator (Full Access) |
-| **`hr_alice`** | HR | hr | Legitimate HR Specialist (Demonstrates 0% false positives) |
-| **`fin_bob`** | Finance | finance | Legitimate finance analyst (Canary search target) |
-| **`eng_carol`** | Engineering | engineer | Senior developer (Off-hours exfiltration scenario) |
-| **`intern_dave`** | Engineering | intern | Engineering Intern (Honeyfile curious access scenario) |
-| **`auditor_eve`** | Compliance | auditor | ISO 27001 auditor inspecting logs |
+| **`onkar`** (or `admin`) | IT | admin | SOC Lead / Security Investigator (Full Access) |
+| **`mugdha`** | HR | hr | Legitimate HR Specialist (Demonstrates 0% false positives) |
+| **`pranav`** | Finance | finance | Legitimate finance analyst (Canary search target) |
+| **`aniket`** | Engineering | engineer | Senior developer (Off-hours exfiltration scenario) |
+| **`samarth`** | Engineering | intern | Engineering Intern (Honeyfile curious access scenario) |
+| **`rupesh`** | Compliance | auditor | ISO 27001 auditor inspecting logs |
+| **`kumar`** | Engineering | engineer | Cloud Infrastructure Engineer |
+| **`mugdha`** | HR | hr | Legitimate HR Specialist (Demonstrates 0% false positives) |
+| **`pranav`** | Finance | finance | Legitimate finance analyst (Canary search target) |
+| **`aniket`** | Engineering | engineer | Senior developer (Off-hours exfiltration scenario) |
+| **`samarth`** | Engineering | intern | Engineering Intern (Honeyfile curious access scenario) |
+| **`rupesh`** | Compliance | auditor | ISO 27001 auditor inspecting logs |
 | **`admin.backup`** | IT | admin | **DECOY LURE ACCOUNT (Any login traps Rule R2)** |
 
 ---
@@ -224,7 +231,7 @@ npm test
 
 | Time | Screen Action | What to Explain to the External Examiner |
 | :---: | :--- | :--- |
-| **0:00 - 1:00** | Log in as `intern_dave`. Browse authorized Engineering documents in Employee Portal. | *"Legitimate daily operations produce baseline access events without triggering false alarms or raising user risk scores."* |
+| **0:00 - 1:00** | Log in as `samarth`. Browse authorized Engineering documents in Employee Portal. | *"Legitimate daily operations produce baseline access events without triggering false alarms or raising user risk scores."* |
 | **1:00 - 2:00** | Navigate into `/HR/Compensation/Salary_Revision_2026_CONFIDENTIAL.xlsx`. | *"The moment an employee touches an unauthorized honeyfile, Rule R1 fires instantly. Within 1.5 seconds, a CRITICAL alert appears on the live SOC dashboard."* |
 | **2:00 - 3:00** | Switch to **Attack Simulator** tab. Click **Execute Scenario S2** & **S4**. | *"We simulate credential abuse on a dormant decoy account and canary token replay. Both trigger deterministic alarms with zero noise."* |
 | **3:00 - 4:00** | Go to **Digital Forensics** tab. Click **Verify Evidentiary Chain**. Then click **Simulate DB Tampering (Demo)** & verify again. | *"Our evidence ledger uses SHA-256 recursive hash chaining compliant with ISO/IEC 27037. When tampering is simulated, verification pinpoints the exact sequence number where integrity was breached."* |

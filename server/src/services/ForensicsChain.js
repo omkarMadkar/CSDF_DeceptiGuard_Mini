@@ -181,14 +181,21 @@ class ForensicsChain {
     doc.text(`Recommended Containment: ${incident.recommendation}`);
     doc.moveDown(1);
 
-    // Forensic Timeline & Rule Hits
-    doc.fontSize(12).fillColor('#1E3A8A').text('3. CORRELATED CHRONOLOGICAL TIMELINE', { underline: true });
+    // Forensic Timeline & Cryptographic Evidence Hashes (ISO/IEC 27037)
+    doc.fontSize(12).fillColor('#1E3A8A').text('3. CORRELATED TIMELINE & CRYPTOGRAPHIC EVIDENCE DIGESTS', { underline: true });
     doc.moveDown(0.5);
     if (incident.eventIds && incident.eventIds.length > 0) {
-      incident.eventIds.forEach((evt, idx) => {
-        doc.fontSize(9).fillColor('#0F172A').text(`[${idx + 1}] ${new Date(evt.ts).toISOString()} - ${evt.action} on ${evt.target}`);
-        doc.fillColor('#64748B').text(`     IP: ${evt.ip} | Rule Hits: ${(evt.ruleHits || []).join(', ') || 'Baseline'}`);
-      });
+      for (let idx = 0; idx < incident.eventIds.length; idx++) {
+        const evt = incident.eventIds[idx];
+        const evidenceRecord = await Evidence.findOne({ eventId: evt._id });
+        doc.fontSize(9).fillColor('#0F172A').text(`[Event ${idx + 1}] ${new Date(evt.ts).toISOString()} - ${evt.action} on ${evt.target}`);
+        doc.fillColor('#475569').text(`     Actor IP: ${evt.ip} | Rule Breaches: ${(evt.ruleHits || []).join(', ') || 'Baseline'}`);
+        if (evidenceRecord) {
+          doc.fontSize(8).fillColor('#1E3A8A').text(`     Block #${evidenceRecord.seq} SHA-256 Digest: ${evidenceRecord.hash}`);
+          doc.fillColor('#64748B').text(`     Previous Hash Link: ${evidenceRecord.prevHash} (ISO/IEC 27037 VALID)`);
+        }
+        doc.moveDown(0.3);
+      }
     } else {
       doc.fontSize(10).fillColor('#64748B').text('No linked events attached.');
     }

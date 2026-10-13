@@ -167,6 +167,10 @@ class RulesEngine {
         });
 
         if (!incident) {
+          const dynamicRootCause = firedRules.some(r => r.id === 'R4' || r.id === 'R5')
+            ? `Anomalous off-hours bulk data activity on ${event.target} (${firedRules.map(r=>r.name).join(', ')})`
+            : `Deterministic trigger on synthetic deception asset: ${event.target} (${firedRules.map(r=>r.name).join(', ')})`;
+
           incident = await Incident.create({
             title: `Insider Deception Incident: ${event.username} accessed ${event.target}`,
             severity: maxSeverity,
@@ -175,6 +179,8 @@ class RulesEngine {
             eventIds: [event._id],
             alertIds: [createdAlert._id],
             mitreTechniques: mitreList,
+            rootCause: dynamicRootCause,
+            recommendation: maxSeverity === 'CRITICAL' ? 'Revoke active sessions, isolate host, and initiate forensic interview.' : 'Audit egress logs and monitor session.',
             notes: [{
               author: 'Autonomous SOC Engine',
               content: `Incident opened automatically following high-confidence trigger on ${event.target}.`

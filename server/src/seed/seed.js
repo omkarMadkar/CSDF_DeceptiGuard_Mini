@@ -34,11 +34,13 @@ async function seedDatabase() {
   console.log('[Seed] Seeding 8 User Accounts (including Decoy Lures)...');
   const users = await User.create([
     { username: 'admin', passwordHash, role: 'admin', department: 'IT' },
-    { username: 'hr_alice', passwordHash, role: 'hr', department: 'HR' },
-    { username: 'fin_bob', passwordHash, role: 'finance', department: 'Finance' },
-    { username: 'eng_carol', passwordHash, role: 'engineer', department: 'Engineering' },
-    { username: 'intern_dave', passwordHash, role: 'intern', department: 'Engineering' },
-    { username: 'auditor_eve', passwordHash, role: 'auditor', department: 'Compliance' },
+    { username: 'onkar', passwordHash, role: 'admin', department: 'IT' },
+    { username: 'mugdha', passwordHash, role: 'hr', department: 'HR' },
+    { username: 'pranav', passwordHash, role: 'finance', department: 'Finance' },
+    { username: 'aniket', passwordHash, role: 'engineer', department: 'Engineering' },
+    { username: 'samarth', passwordHash, role: 'intern', department: 'Engineering' },
+    { username: 'rupesh', passwordHash, role: 'auditor', department: 'Compliance' },
+    { username: 'kumar', passwordHash, role: 'engineer', department: 'Engineering' },
     // Decoy Accounts
     { username: 'admin.backup', passwordHash, role: 'admin', department: 'IT', isDecoy: true },
     { username: 'svc_backup', passwordHash, role: 'engineer', department: 'DevOps', isDecoy: true }
@@ -283,10 +285,10 @@ async function seedDatabase() {
   // 5. Seed Pre-populated Demo Threat Events, Alerts, Hash Chain & Incidents
   console.log('[Seed] Seeding Rich Demo Telemetry, Hash Chained Evidence, and Incidents...');
 
-  const internUser = users.find(u => u.username === 'intern_dave');
-  const engUser = users.find(u => u.username === 'eng_carol');
-  const finUser = users.find(u => u.username === 'fin_bob');
-  const hrUser = users.find(u => u.username === 'hr_alice');
+  const internUser = users.find(u => u.username === 'samarth');
+  const engUser = users.find(u => u.username === 'aniket');
+  const finUser = users.find(u => u.username === 'pranav');
+  const hrUser = users.find(u => u.username === 'mugdha');
   const adminDecoy = users.find(u => u.username === 'admin.backup');
 
   // Time milestones
@@ -472,7 +474,7 @@ async function seedDatabase() {
 
   // Seed Incidents
   const inc1 = await Incident.create({
-    title: 'Insider Deception Breach: intern_dave accessed Executive Compensation Lure',
+    title: 'Insider Deception Breach: samarth accessed Executive Compensation Lure',
     severity: 'CRITICAL',
     status: 'Investigating',
     suspectUserId: internUser._id,
@@ -480,6 +482,8 @@ async function seedDatabase() {
     eventIds: [evt1._id],
     alertIds: [alert1._id],
     mitreTechniques: ['T1083', 'T1005'],
+    rootCause: 'Direct unauthorized access and inspection of synthetic executive compensation honeyfile (Rules R1 & R6).',
+    recommendation: 'Revoke active sessions, rotate credentials, and initiate forensic interview.',
     notes: [
       { author: 'Autonomous SOC Engine', content: 'Incident opened automatically following high-confidence canary trigger on Salary_Revision_2026.xlsx.', createdAt: t1 },
       { author: 'admin', content: 'Analyst reviewed workstation IP 10.0.0.45. User placed on temporary observation hold.', createdAt: new Date(t1.getTime() + 15 * 60 * 1000) }
@@ -488,7 +492,7 @@ async function seedDatabase() {
   });
 
   const inc2 = await Incident.create({
-    title: 'Off-Hours Exfiltration: eng_carol downloaded 25 source code packages',
+    title: 'Off-Hours Exfiltration: aniket downloaded 25 source code packages',
     severity: 'HIGH',
     status: 'Contained',
     suspectUserId: engUser._id,
@@ -496,9 +500,11 @@ async function seedDatabase() {
     eventIds: [evt3._id],
     alertIds: [alert3._id],
     mitreTechniques: ['T1005', 'T1567', 'T1078'],
+    rootCause: 'Anomalous off-hours bulk data staging of 25 proprietary source code packages (Rules R4 & R5).',
+    recommendation: 'Suspend repository tokens, quarantine engineering workstation, and audit git egress logs.',
     notes: [
       { author: 'Autonomous SOC Engine', content: 'Anomalous bulk download flagged outside normal working hours.', createdAt: t3 },
-      { author: 'auditor_eve', content: 'Employee contacted; session contained and VPN access revoked pending interview.', createdAt: new Date(t3.getTime() + 20 * 60 * 1000) }
+      { author: 'rupesh', content: 'Employee contacted; session contained and VPN access revoked pending interview.', createdAt: new Date(t3.getTime() + 20 * 60 * 1000) }
     ],
     createdAt: t3
   });
@@ -528,7 +534,7 @@ async function seedDatabase() {
     },
     {
       incidentId: inc2._id,
-      actor: 'auditor_eve',
+      actor: 'rupesh',
       action: 'STATUS_TRANSITION',
       detail: 'Incident moved to Contained status.',
       ts: new Date(t3.getTime() + 20 * 60 * 1000)
@@ -540,11 +546,11 @@ async function seedDatabase() {
   console.log('------------------------------------------------------');
   console.log('Demo Credentials (All accounts use password: Password123!)');
   console.log('• Admin:       admin');
-  console.log('• HR:          hr_alice');
-  console.log('• Finance:     fin_bob');
-  console.log('• Engineer:    eng_carol');
-  console.log('• Intern:      intern_dave');
-  console.log('• Auditor:     auditor_eve');
+  console.log('• HR:          mugdha');
+  console.log('• Finance:     pranav');
+  console.log('• Engineer:    aniket');
+  console.log('• Intern:      samarth');
+  console.log('• Auditor:     rupesh');
   console.log('• Decoy User:  admin.backup (Triggers Rule R2)');
   console.log('======================================================\n');
 

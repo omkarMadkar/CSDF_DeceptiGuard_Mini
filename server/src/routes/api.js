@@ -33,10 +33,10 @@ module.exports = (rulesEngine) => {
   router.get('/soc/decoys', SocController.getDecoys);
   router.patch('/soc/decoys/:id/toggle', SocController.toggleDecoy);
 
-  // Digital Forensics & Case Management
+  // Digital Forensics & Case Management (Tamper/Restore are protected lab-diagnostic endpoints)
   router.get('/forensics/verify', ForensicsController.verify);
-  router.post('/forensics/tamper-demo', ForensicsController.tamperDemo);
-  router.post('/forensics/restore-chain', ForensicsController.restoreChain);
+  router.post('/forensics/tamper-demo', authMiddleware, ForensicsController.tamperDemo);
+  router.post('/forensics/restore-chain', authMiddleware, ForensicsController.restoreChain);
   router.get('/forensics/incidents', ForensicsController.getIncidents);
   router.get('/forensics/incidents/:id', ForensicsController.getIncidentById);
   router.patch('/forensics/incidents/:id/status', authMiddleware, ForensicsController.updateIncidentStatus);

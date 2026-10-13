@@ -47,7 +47,9 @@
         <span class="tab-icon">🔍</span> Digital Forensics
       </button>
       <button class="nav-tab" data-tab="incidents-tab">
-        <span class="tab-icon">🚨</span> Incidents (<span id="incident-badge-count">2</span>)
+        <span class="tab-icon">🚨</span>
+        <span>Incidents</span>
+        <span class="nav-badge" id="incident-badge-count">2</span>
       </button>
       <button class="nav-tab" data-tab="deception-tab">
         <span class="tab-icon">🍯</span> Deception Manager
@@ -70,7 +72,7 @@
       <!-- User Persona -->
       <div class="user-chip" id="btn-switch-user" title="Click to Switch User Persona">
         <span class="role-badge" id="current-user-role">admin</span>
-        <span class="username-text" id="current-username">admin</span>
+        <span class="username-text" id="current-username">onkar</span>
         <span class="chevron">▾</span>
       </div>
     </div>
@@ -105,8 +107,8 @@
         </div>
         <div class="kpi-card highlight-emerald">
           <div class="kpi-label">MEAN TIME TO DETECT</div>
-          <div class="kpi-value text-emerald" id="kpi-mttd">&lt; 1.45 s</div>
-          <div class="kpi-sub">Sub-2 Second Lab Benchmark</div>
+          <div class="kpi-value text-emerald" id="kpi-mttd">&lt; 50 ms</div>
+          <div class="kpi-sub">Real-Time Sub-Second Ingestion</div>
         </div>
       </div>
 
@@ -298,7 +300,7 @@
 
         <!-- Mathematical Chain Formulation Box -->
         <div class="math-box">
-          <code><b>ISO/IEC 27037:2012 Formulation:</b> H<sub>0</sub> = SHA256('GENESIS_BLOCK') | H<sub>n</sub> = SHA256( H<sub>n-1</sub> || CanonicalJSON(Payload<sub>n</sub>) || Timestamp<sub>n</sub> )</code>
+          <code><b>ISO/IEC 27037:2012 Formulation:</b> H<sub>0</sub> = SHA256('0'<sup>64</sup> || CanonicalJSON(GenesisPayload) || T<sub>0</sub>) | H<sub>n</sub> = SHA256( H<sub>n-1</sub> || CanonicalJSON(Payload<sub>n</sub>) || Timestamp<sub>n</sub> )</code>
         </div>
 
         <!-- Chain of Custody Log Table -->
@@ -411,7 +413,7 @@
               <span class="badge coral">SCENARIO S1</span>
               <h4>Curious Employee Honeyfile Access</h4>
             </div>
-            <p><b>Actor:</b> <code>intern_dave</code> (Engineering)</p>
+            <p><b>Actor:</b> <code>samarth</code> (Engineering)</p>
             <p><b>Action:</b> Probes <code>/HR/Compensation/Salary_Revision_2026_CONFIDENTIAL.xlsx</code>.</p>
             <p><b>Expected Detection:</b> <b>Rule R1 & R6</b> &rarr; CRITICAL (+120 pts).</p>
             <button class="btn btn-primary btn-block btn-run-sim" data-scenario="S1">Execute Scenario S1</button>
@@ -435,7 +437,7 @@
               <span class="badge gold">SCENARIO S3</span>
               <h4>After-Hours Bulk Data Exfiltration</h4>
             </div>
-            <p><b>Actor:</b> <code>eng_carol</code> (Engineer)</p>
+            <p><b>Actor:</b> <code>aniket</code> (Engineer)</p>
             <p><b>Action:</b> Bulk downloads 25 source code archives at 02:30 AM.</p>
             <p><b>Expected Detection:</b> <b>Rule R4 & R5</b> &rarr; HIGH (+45 pts).</p>
             <button class="btn btn-primary btn-block btn-run-sim" data-scenario="S3">Execute Scenario S3</button>
@@ -447,7 +449,7 @@
               <span class="badge coral">SCENARIO S4</span>
               <h4>Honeytoken Canary Credential Replay</h4>
             </div>
-            <p><b>Actor:</b> <code>fin_bob</code> (Finance)</p>
+            <p><b>Actor:</b> <code>pranav</code> (Finance)</p>
             <p><b>Action:</b> Injects stolen canary key <code>canary_sec_key_99x88a77b</code> into search.</p>
             <p><b>Expected Detection:</b> <b>Rule R3</b> &rarr; CRITICAL (+100 pts).</p>
             <button class="btn btn-primary btn-block btn-run-sim" data-scenario="S4">Execute Scenario S4</button>
@@ -459,7 +461,7 @@
               <span class="badge emerald">SCENARIO S5 (BENIGN)</span>
               <h4>Legitimate Daytime Employee Workflow</h4>
             </div>
-            <p><b>Actor:</b> <code>hr_alice</code> (HR)</p>
+            <p><b>Actor:</b> <code>mugdha</code> (HR)</p>
             <p><b>Action:</b> Views authorized <code>Employee_Handbook_2026.pdf</code> at 11:00 AM.</p>
             <p><b>Expected Detection:</b> <b>0 ALERTS</b> (0% False-Positive Baseline Verification).</p>
             <button class="btn btn-secondary btn-block btn-run-sim" data-scenario="S5">Execute Scenario S5</button>
@@ -488,29 +490,33 @@
       </div>
       <p class="modal-desc">Select a simulated corporate user to log in as:</p>
       <div class="persona-list">
-        <button class="persona-btn" data-user="admin">
+        <button class="persona-btn" data-user="onkar">
           <span class="p-role badge navy">IT ADMIN</span>
-          <b>admin</b> (Full Access & SOC Lead)
+          <b>onkar</b> (Full Access & SOC Lead)
         </button>
-        <button class="persona-btn" data-user="hr_alice">
+        <button class="persona-btn" data-user="mugdha">
           <span class="p-role badge gold">HR</span>
-          <b>hr_alice</b> (Legitimate HR Specialist - Benign baseline)
+          <b>mugdha</b> (Legitimate HR Specialist - Benign baseline)
         </button>
-        <button class="persona-btn" data-user="fin_bob">
+        <button class="persona-btn" data-user="pranav">
           <span class="p-role badge gold">FINANCE</span>
-          <b>fin_bob</b> (Finance Analyst - Canary token target)
+          <b>pranav</b> (Finance Analyst - Canary token target)
         </button>
-        <button class="persona-btn" data-user="eng_carol">
+        <button class="persona-btn" data-user="aniket">
           <span class="p-role badge gold">ENGINEERING</span>
-          <b>eng_carol</b> (Senior Kernel Developer - Off-hours exfil)
+          <b>aniket</b> (Senior Kernel Developer - Off-hours exfil)
         </button>
-        <button class="persona-btn" data-user="intern_dave">
+        <button class="persona-btn" data-user="samarth">
           <span class="p-role badge gold">INTERN</span>
-          <b>intern_dave</b> (Engineering Intern - Honeyfile intruder)
+          <b>samarth</b> (Engineering Intern - Honeyfile intruder)
         </button>
-        <button class="persona-btn" data-user="auditor_eve">
+        <button class="persona-btn" data-user="rupesh">
           <span class="p-role badge navy">AUDITOR</span>
-          <b>auditor_eve</b> (Compliance Auditor - ISO 27037 inspector)
+          <b>rupesh</b> (Compliance Auditor - ISO 27037 inspector)
+        </button>
+        <button class="persona-btn" data-user="kumar">
+          <span class="p-role badge gold">ENGINEERING</span>
+          <b>kumar</b> (Cloud Infrastructure Engineer)
         </button>
         <button class="persona-btn decoy-user" data-user="admin.backup">
           <span class="p-role badge coral">DECOY LURE</span>
