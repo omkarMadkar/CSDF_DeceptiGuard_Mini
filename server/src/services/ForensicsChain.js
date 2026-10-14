@@ -1,21 +1,16 @@
 const Evidence = require('../models/Evidence');
 const Incident = require('../models/Incident');
-const CustodyLog = require('../models/CustodyLog');
+const settings = require('../config/settings');
 const { canonicalJson, sha256 } = require('../utils/cryptoUtils');
 const PDFDocument = require('pdfkit');
 
-const GENESIS_HASH = '0000000000000000000000000000000000000000000000000000000000000000';
-
 class ForensicsChain {
-  /**
-   * Appends an event to the cryptographic evidence hash chain.
-   */
+  // Saves a new security event into the cryptographic evidence chain
   static async appendEvidence(eventId, eventPayload) {
     try {
-      // Find the latest evidence record to get prevHash and seq
       const lastEvidence = await Evidence.findOne().sort({ seq: -1 });
       const seq = lastEvidence ? lastEvidence.seq + 1 : 1;
-      const prevHash = lastEvidence ? lastEvidence.hash : GENESIS_HASH;
+      const prevHash = lastEvidence ? lastEvidence.hash : settings.GENESIS_HASH;
       const createdAt = new Date();
 
       const normalizedPayload = {
@@ -48,29 +43,25 @@ class ForensicsChain {
     }
   }
 
-  /**
-   * Validates the integrity of the entire hash chain from seq 1 to N.
-   */
+  // Checks the cryptographic integrity of all evidence blocks from 0 to N
   static async verifyChain() {
     const records = await Evidence.find().sort({ seq: 1 });
     if (!records || records.length === 0) {
-      return { valid: true, count: 0, message: 'Evidence ledger is empty. Chain is intact.' };
+      return { valid: true, count: 0, message: 'All 0 blocks are fine (Ledger is empty)' };
     }
 
-    let previousHash = GENESIS_HASH;
+    let previousHash = settings.GENESIS_HASH;
     for (const record of records) {
-      // 1. Verify prevHash link
+      // 1. Check previous hash pointer
       if (record.prevHash !== previousHash) {
         return {
           valid: false,
           brokenSeq: record.seq,
-          reason: 'Broken hash link with prior block',
-          expectedPrevHash: previousHash,
-          actualPrevHash: record.prevHash
+          message: `Block number ${record.seq} was changed (Broken hash link)`
         };
       }
 
-      // 2. Recompute hash
+      // 2. Re-calculate SHA-256 digest on block data
       const payloadString = canonicalJson(record.payload);
       const expectedHash = sha256(record.prevHash + payloadString + new Date(record.createdAt).toISOString());
       
@@ -78,9 +69,7 @@ class ForensicsChain {
         return {
           valid: false,
           brokenSeq: record.seq,
-          reason: 'Cryptographic payload digest mismatch (Tampering detected!)',
-          expectedHash,
-          actualHash: record.hash
+          message: `Block number ${record.seq} was changed (Data altered)`
         };
       }
 
@@ -90,25 +79,26 @@ class ForensicsChain {
     return { 
       valid: true, 
       count: records.length, 
-      latestHash: previousHash,
-      message: `All ${records.length} forensic evidence records cryptographically verified (0 alterations detected).` 
+      message: `All ${records.length} blocks are fine` 
     };
   }
 
-  /**
-   * Tamper Demo: intentionally mutates one record in the database
-   * to demonstrate forensic detection.
-   */
+  // Lab demo only: purposely alters Block #1 in the database without updating the hash
   static async simulateTampering() {
     const records = await Evidence.find().sort({ seq: 1 });
     if (records.length === 0) {
-      throw new Error('No evidence records found to tamper with.');
+      throw new Error('No evidence blocks found to tamper with.');
     }
-    // Target the first or middle record
-    const targetIndex = records.length > 2 ? 1 : 0;
-    const target = records[targetIndex];
+    // Block #1 is the first data block after Genesis Block #0
+    const target = records.length > 1 ? records[1] : records[0];
 
-    const tamperedPayload = { ...target.payload, username: 'tampered_intruder_modified' };
+    const currentFlag = target.payload && target.payload.tampered;
+    const tamperedPayload = {
+      ...target.payload,
+      tampered: !currentFlag,
+      tamperedAt: new Date().toISOString()
+    };
+
     await Evidence.updateOne(
       { _id: target._id },
       { $set: { payload: tamperedPayload } }
@@ -116,83 +106,88 @@ class ForensicsChain {
 
     return {
       tamperedSeq: target.seq,
-      message: `Tampered with evidence sequence #${target.seq} by modifying payload payload without recalculating hash.`
+      message: `Block number ${target.seq} was modified for lab demonstration (Hash now invalid).`
     };
   }
 
-  /**
-   * Restores chain consistency after tamper demo (recalculates from tampered node)
-   */
+  // Lab demo only: restores original block data and recalculates all SHA-256 hashes
   static async restoreChain() {
     const records = await Evidence.find().sort({ seq: 1 });
-    let previousHash = GENESIS_HASH;
+    let previousHash = settings.GENESIS_HASH;
     for (const record of records) {
-      const payloadString = canonicalJson(record.payload);
+      // Clean tamper flag if present
+      const cleanPayload = { ...record.payload };
+      delete cleanPayload.tampered;
+      delete cleanPayload.tamperedAt;
+
+      const payloadString = canonicalJson(cleanPayload);
       const computedHash = sha256(previousHash + payloadString + new Date(record.createdAt).toISOString());
+      
       await Evidence.updateOne(
         { _id: record._id },
-        { $set: { prevHash: previousHash, hash: computedHash } }
+        { $set: { payload: cleanPayload, prevHash: previousHash, hash: computedHash } }
       );
       previousHash = computedHash;
     }
-    return { message: 'Chain hashes re-synchronized.' };
+    return { message: 'All evidence blocks restored and re-verified.' };
   }
 
-  /**
-   * Generates a forensic incident dossier PDF
-   */
+  // Generates a clean, court-admissible PDF forensic report for an incident
   static async generateIncidentPdf(incidentId, res) {
     const incident = await Incident.findById(incidentId).populate('eventIds').populate('alertIds');
-    if (!incident) throw new Error('Incident not found');
+    if (!incident) throw new Error('Incident case not found');
 
     const doc = new PDFDocument({ margin: 40 });
-    const filename = `Incident_Dossier_${incident._id}.pdf`;
-    
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="Case_Report_${incident._id}.pdf"`);
     doc.pipe(res);
 
-    // Title & Header
-    doc.fontSize(20).fillColor('#0F172A').text('DECEPTIGUARD DIGITAL FORENSIC INCIDENT REPORT', { align: 'center' });
+    // Document Header
+    doc.fontSize(20).fillColor('#2A2C41').text('DECEPTIGUARD - DIGITAL FORENSIC REPORT', { align: 'center' });
+    doc.moveDown(0.3);
+    doc.fontSize(10).fillColor('#64748B').text('ISO/IEC 27037 Digital Evidence & Chain-of-Custody Specification', { align: 'center' });
     doc.moveDown(0.5);
-    doc.fontSize(10).fillColor('#475569').text(`NIST SP 800-86 & ISO/IEC 27037 Evidentiary Standard Compliance`, { align: 'center' });
-    doc.moveDown(1);
     doc.strokeColor('#CBD5E1').lineWidth(1).moveTo(40, doc.y).lineTo(570, doc.y).stroke();
     doc.moveDown(1);
 
-    // Metadata Grid
-    doc.fontSize(12).fillColor('#1E3A8A').text('1. INCIDENT OVERVIEW & CASE ATTRIBUTION', { underline: true });
-    doc.moveDown(0.5);
-    doc.fontSize(10).fillColor('#1E293B');
-    doc.text(`Incident ID: ${incident._id}`);
-    doc.text(`Case Title: ${incident.title}`);
-    doc.text(`Severity Level: ${incident.severity}`);
+    // Section 1: Case Overview
+    doc.fontSize(12).fillColor('#FF724C').text('1. CASE OVERVIEW');
+    doc.moveDown(0.3);
+    doc.fontSize(10).fillColor('#2A2C41');
+    doc.text(`Case ID: ${incident._id}`);
+    doc.text(`Title: ${incident.title}`);
+    doc.text(`Suspect: ${incident.suspectUsername}`);
+    doc.text(`Severity: ${incident.severity}`);
     doc.text(`Status: ${incident.status}`);
-    doc.text(`Suspect Attribution: ${incident.suspectUsername}`);
-    doc.text(`Opened Timestamp: ${incident.createdAt.toISOString()}`);
+    doc.text(`Created At: ${new Date(incident.createdAt).toLocaleString()}`);
     doc.moveDown(1);
 
-    // MITRE Mapping
-    doc.fontSize(12).fillColor('#1E3A8A').text('2. MITRE ATT&CK MATRIX MAPPING', { underline: true });
-    doc.moveDown(0.5);
-    doc.fontSize(10).fillColor('#1E293B');
-    doc.text(`Identified Techniques: ${(incident.mitreTechniques || ['T1083', 'T1005']).join(', ')}`);
-    doc.text(`Root Cause Analysis: ${incident.rootCause}`);
-    doc.text(`Recommended Containment: ${incident.recommendation}`);
+    // Section 2: Root Cause & Rules Fired
+    doc.fontSize(12).fillColor('#FF724C').text('2. ROOT CAUSE ANALYSIS & RULES FIRED');
+    doc.moveDown(0.3);
+    doc.fontSize(10).fillColor('#2A2C41');
+    doc.text(`Root Cause: ${incident.rootCause || 'Unauthorized interaction with security trap'}`);
+    if (incident.alertIds && incident.alertIds.length > 0) {
+      incident.alertIds.forEach(a => {
+        const rulesText = (a.rulesFired || []).map(r => `${r.ruleId} (${r.ruleName}: ${r.points} pts)`).join(', ');
+        doc.text(`Alert Triggered: ${rulesText}`);
+        doc.text(`Target Asset: ${a.targetAsset}`);
+      });
+    }
     doc.moveDown(1);
 
-    // Forensic Timeline & Cryptographic Evidence Hashes (ISO/IEC 27037)
-    doc.fontSize(12).fillColor('#1E3A8A').text('3. CORRELATED TIMELINE & CRYPTOGRAPHIC EVIDENCE DIGESTS', { underline: true });
-    doc.moveDown(0.5);
+    // Section 3: Evidence Blocks and Cryptographic Hashes
+    doc.fontSize(12).fillColor('#FF724C').text('3. EVIDENCE BLOCKS & SHA-256 HASH CHAIN (ISO/IEC 27037)');
+    doc.moveDown(0.3);
     if (incident.eventIds && incident.eventIds.length > 0) {
       for (let idx = 0; idx < incident.eventIds.length; idx++) {
         const evt = incident.eventIds[idx];
-        const evidenceRecord = await Evidence.findOne({ eventId: evt._id });
-        doc.fontSize(9).fillColor('#0F172A').text(`[Event ${idx + 1}] ${new Date(evt.ts).toISOString()} - ${evt.action} on ${evt.target}`);
-        doc.fillColor('#475569').text(`     Actor IP: ${evt.ip} | Rule Breaches: ${(evt.ruleHits || []).join(', ') || 'Baseline'}`);
-        if (evidenceRecord) {
-          doc.fontSize(8).fillColor('#1E3A8A').text(`     Block #${evidenceRecord.seq} SHA-256 Digest: ${evidenceRecord.hash}`);
-          doc.fillColor('#64748B').text(`     Previous Hash Link: ${evidenceRecord.prevHash} (ISO/IEC 27037 VALID)`);
+        const block = await Evidence.findOne({ eventId: evt._id });
+        doc.fontSize(9).fillColor('#2A2C41').text(`[Event ${idx + 1}] ${new Date(evt.ts || evt.createdAt).toLocaleString()} | Action: ${evt.action} on ${evt.target}`);
+        doc.fillColor('#64748B').text(`     IP: ${evt.ip || '127.0.0.1'}`);
+        if (block) {
+          doc.fillColor('#10B981').text(`     Block #${block.seq} SHA-256 Hash: ${block.hash}`);
+          doc.fillColor('#64748B').text(`     Previous Block Hash Link: ${block.prevHash}`);
         }
         doc.moveDown(0.3);
       }
@@ -201,22 +196,17 @@ class ForensicsChain {
     }
     doc.moveDown(1);
 
-    // Investigator Notes
-    doc.fontSize(12).fillColor('#1E3A8A').text('4. CHAIN OF CUSTODY & INVESTIGATOR LOG', { underline: true });
-    doc.moveDown(0.5);
-    const logs = await CustodyLog.find({ incidentId: incident._id }).sort({ ts: 1 });
-    if (logs.length > 0) {
-      logs.forEach(l => {
-        doc.fontSize(9).fillColor('#1E293B').text(`${new Date(l.ts).toISOString()} - ${l.actor}: ${l.action} (${l.detail})`);
-      });
-    } else {
-      doc.fontSize(10).fillColor('#64748B').text('Case initialized. Evidentiary ledger intact.');
-    }
-
+    // Section 4: Recommendations
+    doc.fontSize(12).fillColor('#FF724C').text('4. RECOMMENDED CONTAINMENT ACTIONS');
+    doc.moveDown(0.3);
+    doc.fontSize(10).fillColor('#2A2C41');
+    doc.text('1. Revoke active employee session tokens and reset login credentials.');
+    doc.text('2. Quarantine workstation and conduct forensic interview regarding unauthorized trap file access.');
     doc.moveDown(1.5);
-    doc.strokeColor('#CBD5E1').lineWidth(1).moveTo(40, doc.y).lineTo(570, doc.y).stroke();
+
+    doc.strokeColor('#CBD5E1').lineWidth(0.5).moveTo(40, doc.y).lineTo(570, doc.y).stroke();
     doc.moveDown(0.5);
-    doc.fontSize(8).fillColor('#94A3B8').text('This document was autonomously compiled with SHA-256 cryptographic chain validation by DeceptiGuard Forensic Engine.', { align: 'center' });
+    doc.fontSize(8).fillColor('#94A3B8').text('Autonomously verified by DeceptiGuard Cryptographic Forensics Engine.', { align: 'center' });
 
     doc.end();
   }

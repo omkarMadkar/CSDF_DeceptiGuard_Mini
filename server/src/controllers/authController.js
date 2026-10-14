@@ -1,3 +1,4 @@
+// Handles user logins, decoy account traps, session validation, and logouts
 const User = require('../models/User');
 const Event = require('../models/Event');
 const bcrypt = require('bcryptjs');
@@ -6,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET || 'deceptiguard_super_secret_jwt_key_2026';
 
 class AuthController {
+  // Authenticates employee accounts or triggers Rule R2 on fake decoy account logins
   static async login(req, res, rulesEngine) {
     try {
       const { username, password } = req.body;
@@ -17,7 +19,7 @@ class AuthController {
       const ip = req.ip || req.connection.remoteAddress || '127.0.0.1';
       const userAgent = req.headers['user-agent'] || 'Browser';
 
-      // 1. Trap Decoy Accounts (admin.backup, svc_backup, ceo.assistant)
+      // 1. Trap Decoy Accounts (admin.backup)
       if (user && user.isDecoy) {
         const rawEvent = await Event.create({
           userId: user._id,
@@ -47,14 +49,13 @@ class AuthController {
           action: 'LOGIN_FAILED',
           target: `/api/auth/login`,
           ip,
-          userAgent,
-          metadata: { failedCount: 5 } // Demo threshold testing
+          userAgent
         });
         await rulesEngine.processEvent(rawEvent);
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      // Successful login
+      // Successful login creates JWT token
       const token = jwt.sign(
         { userId: user._id, username: user.username, role: user.role, department: user.department },
         JWT_SECRET,
@@ -97,12 +98,14 @@ class AuthController {
     }
   }
 
+  // Returns the currently logged in user profile
   static async getMe(req, res) {
     if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
     const user = await User.findById(req.user.userId).select('-passwordHash');
     res.json({ user });
   }
 
+  // Logs out the active user and records the logout event
   static async logout(req, res, rulesEngine) {
     if (req.user) {
       const rawEvent = await Event.create({

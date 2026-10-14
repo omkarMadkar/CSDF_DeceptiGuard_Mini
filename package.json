@@ -1,0 +1,10 @@
+{
+  "name": "deceptiguard",
+  "version": "1.0.0",
+  "description": "DeceptiGuard: Insider Threat Detection Using Deception, Cyber Security and Digital Forensics",
+  "scripts": {
+    "start": "npm --prefix server start",
+    "seed": "npm --prefix server run seed",
+    "test": "npm --prefix server test"
+  }
+}

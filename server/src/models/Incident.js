@@ -1,3 +1,4 @@
+// Database model for security threat cases and incident investigations
 const mongoose = require('mongoose');
 
 const incidentSchema = new mongoose.Schema({
@@ -5,7 +6,7 @@ const incidentSchema = new mongoose.Schema({
   severity: { type: String, enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'], default: 'HIGH' },
   status: { 
     type: String, 
-    enum: ['Open', 'Investigating', 'Contained', 'Closed'], 
+    enum: ['Open', 'Checking', 'Closed', 'Investigating', 'Contained'], 
     default: 'Open' 
   },
   suspectUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -18,8 +19,8 @@ const incidentSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
   }],
   mitreTechniques: [{ type: String }],
-  rootCause: { type: String, default: 'Unauthorized access to deceptive canary artifacts.' },
-  recommendation: { type: String, default: 'Revoke active sessions, rotate credentials, and initiate forensic interview.' },
+  rootCause: { type: String, default: 'Unauthorized access to security trap.' },
+  recommendation: { type: String, default: '1. Revoke active user session. 2. Conduct forensic interview.' },
   closedAt: { type: Date, default: null }
 }, { timestamps: true });
 

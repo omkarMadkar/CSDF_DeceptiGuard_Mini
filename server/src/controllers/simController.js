@@ -1,77 +1,113 @@
+// Runs the 5 test attack scenarios to demonstrate trap detection and measuring MTTD
 const User = require('../models/User');
-const File = require('../models/File');
 const Event = require('../models/Event');
+const settings = require('../config/settings');
 
 class SimController {
+  // Executes one of the 5 predefined attack scenarios and measures time-to-detect
   static async runScenario(req, res, rulesEngine) {
     const { scenarioId } = req.params;
     const startTime = Date.now();
 
     try {
+      // 1. Curious Intern: samarth opens the salary trap file
       if (scenarioId === 'S1') {
-        // S1 Curious employee: opens Salary_Revision_2026_CONFIDENTIAL.xlsx
         const user = await User.findOne({ username: 'samarth' });
+        const dayTime = new Date();
+        dayTime.setHours(14, 0, 0, 0); // 2:00 PM (Business hours)
+
         const rawEvent = await Event.create({
           userId: user?._id,
           username: 'samarth',
           role: 'intern',
           action: 'FILE_VIEW',
-          target: '/HR/Compensation/Salary_Revision_2026_CONFIDENTIAL.xlsx',
+          target: settings.TRAPS.files[0].path,
           ip: '10.0.0.45',
+          ts: dayTime,
           metadata: { isDecoy: true, sensitivity: 'Confidential' }
         });
         const result = await rulesEngine.processEvent(rawEvent);
         const mttdMs = Date.now() - startTime;
         return res.json({
           scenario: 'S1',
-          name: 'Curious Intern accessing Honeyfile',
-          expectedAlert: 'CRITICAL (Rule R1)',
+          name: 'Curious Intern',
+          who: 'samarth',
+          what: `Opened salary trap file (${settings.TRAPS.files[0].name})`,
+          expected: 'Critical alert (R1)',
+          rulesFired: result.firedRules.map(r => `${r.id}: ${r.name}`),
+          points: result.addedScore,
           mttdMs,
           result
         });
       }
 
+      // 2. Fake Admin Login: admin.backup attempts login and calls trap web address
       if (scenarioId === 'S2') {
-        // S2 Disgruntled admin: tries login as admin.backup and calls /api/v1/admin/export-all
-        const decoyUser = await User.findOne({ username: 'admin.backup' });
+        const decoyUser = await User.findOne({ username: settings.TRAPS.account });
+        const dayTime = new Date();
+        dayTime.setHours(14, 0, 0, 0);
+
         const evt1 = await Event.create({
           userId: decoyUser?._id,
-          username: 'admin.backup',
+          username: settings.TRAPS.account,
           role: 'admin',
           action: 'LOGIN_FAILED',
-          target: 'Decoy Administrator Account Authentication (admin.backup)',
+          target: `Decoy Admin Account Authentication (${settings.TRAPS.account})`,
           ip: '192.168.1.105',
+          ts: dayTime,
           metadata: { isDecoyAccount: true }
         });
         const res1 = await rulesEngine.processEvent(evt1);
 
         const evt2 = await Event.create({
           userId: decoyUser?._id,
-          username: 'admin.backup',
+          username: settings.TRAPS.account,
           role: 'admin',
           action: 'DECOY_ENDPOINT_HIT',
-          target: '/api/v1/admin/export-all',
+          target: settings.TRAPS.endpoint,
           ip: '192.168.1.105',
+          ts: dayTime,
           metadata: { isDecoy: true }
         });
         const res2 = await rulesEngine.processEvent(evt2);
 
         const mttdMs = Date.now() - startTime;
+        const allRules = [...(res1.firedRules || []), ...(res2.firedRules || [])];
+        const totalPoints = (res1.addedScore || 0) + (res2.addedScore || 0);
+
         return res.json({
           scenario: 'S2',
-          name: 'Decoy Admin Account & Endpoint Probing',
-          expectedAlert: 'CRITICAL (Rules R2 & R1)',
+          name: 'Fake Admin Login',
+          who: 'admin.backup',
+          what: `Decoy admin login attempt and called trap address (${settings.TRAPS.endpoint})`,
+          expected: 'Critical alerts (R2, R1)',
+          rulesFired: allRules.map(r => `${r.id}: ${r.name}`),
+          points: totalPoints,
           mttdMs,
           events: [res1, res2]
         });
       }
 
+      // 3. Night Download: aniket downloads 12 files at 2 AM
       if (scenarioId === 'S3') {
-        // S3 Data exfiltrator: after-hours bulk download of 25 files
         const user = await User.findOne({ username: 'aniket' });
-        const afterHoursTs = new Date();
-        afterHoursTs.setHours(2, 30, 0, 0); // 02:30 AM
+        const twoAm = new Date();
+        twoAm.setHours(2, 0, 0, 0);
 
+        // Pre-insert 11 prior downloads in the 5-minute window
+        for (let i = 0; i < 11; i++) {
+          await Event.create({
+            userId: user?._id,
+            username: 'aniket',
+            role: 'engineer',
+            action: 'FILE_DOWNLOAD',
+            target: `/Engineering/SourceCode/driver_part_${i}.tar.gz`,
+            ip: '10.0.0.12',
+            ts: new Date(twoAm.getTime() - (11 - i) * 1000)
+          });
+        }
+
+        // 12th download triggers both R4 (Night-time) and R5 (Too many downloads)
         const rawEvent = await Event.create({
           userId: user?._id,
           username: 'aniket',
@@ -79,48 +115,61 @@ class SimController {
           action: 'FILE_DOWNLOAD',
           target: '/Engineering/SourceCode/Kernel_Drivers_Archive.tar.gz',
           ip: '10.0.0.12',
-          ts: afterHoursTs,
-          metadata: { bulkCount: 25, sensitivity: 'Confidential' }
+          ts: twoAm
         });
         const result = await rulesEngine.processEvent(rawEvent);
         const mttdMs = Date.now() - startTime;
+
         return res.json({
           scenario: 'S3',
-          name: 'After-Hours Bulk Data Staging & Exfiltration',
-          expectedAlert: 'HIGH (Rules R4 & R5)',
+          name: 'Night Download',
+          who: 'aniket',
+          what: 'Downloaded 12 files at 2:00 AM (Outside 9 AM - 7 PM)',
+          expected: 'High alert (R4, R5)',
+          rulesFired: result.firedRules.map(r => `${r.id}: ${r.name}`),
+          points: result.addedScore,
           mttdMs,
           result
         });
       }
 
+      // 4. Stolen Key: pranav types the fake canary key in search
       if (scenarioId === 'S4') {
-        // S4 Credential thief: submits canary API key
         const user = await User.findOne({ username: 'pranav' });
+        const dayTime = new Date();
+        dayTime.setHours(14, 0, 0, 0); // 2:00 PM (Business hours)
+
         const rawEvent = await Event.create({
           userId: user?._id,
           username: 'pranav',
           role: 'finance',
           action: 'HONEYTOKEN_SUBMIT',
-          target: '/portal/search?q=canary_sec_key_99x88a77b',
+          target: `/portal/search?q=${settings.TRAPS.key}`,
           ip: '10.0.0.88',
-          metadata: { honeytokenHit: true, tokenValue: 'canary_sec_key_99x88a77b' }
+          ts: dayTime,
+          metadata: { honeytokenHit: true, tokenValue: settings.TRAPS.key, searchQuery: settings.TRAPS.key }
         });
         const result = await rulesEngine.processEvent(rawEvent);
         const mttdMs = Date.now() - startTime;
+
         return res.json({
           scenario: 'S4',
-          name: 'Honeytoken Canary Credential Replay',
-          expectedAlert: 'CRITICAL (Rule R3)',
+          name: 'Stolen Key',
+          who: 'pranav',
+          what: `Typed fake key into search (${settings.TRAPS.key})`,
+          expected: 'Critical alert (R3)',
+          rulesFired: result.firedRules.map(r => `${r.id}: ${r.name}`),
+          points: result.addedScore,
           mttdMs,
           result
         });
       }
 
+      // 5. Normal Day: mugdha opens an allowed file at 11 AM
       if (scenarioId === 'S5') {
-        // S5 Benign normal user: regular work, no alerts
         const user = await User.findOne({ username: 'mugdha' });
-        const dayTs = new Date();
-        dayTs.setHours(11, 0, 0, 0); // 11:00 AM
+        const elevenAm = new Date();
+        elevenAm.setHours(11, 0, 0, 0);
 
         const rawEvent = await Event.create({
           userId: user?._id,
@@ -129,15 +178,20 @@ class SimController {
           action: 'FILE_VIEW',
           target: '/HR/Policies/Employee_Handbook_2026.pdf',
           ip: '10.0.0.5',
-          ts: dayTs,
+          ts: elevenAm,
           metadata: { isDecoy: false, sensitivity: 'Internal' }
         });
         const result = await rulesEngine.processEvent(rawEvent);
         const mttdMs = Date.now() - startTime;
+
         return res.json({
           scenario: 'S5',
-          name: 'Benign Employee Legitimate Access',
-          expectedAlert: 'NONE (0% False Positive Baseline)',
+          name: 'Normal Day',
+          who: 'mugdha',
+          what: 'Opened allowed file (Employee_Handbook_2026.pdf) at 11:00 AM',
+          expected: 'NO alert',
+          rulesFired: result.firedRules.map(r => `${r.id}: ${r.name}`),
+          points: result.addedScore,
           mttdMs,
           result
         });

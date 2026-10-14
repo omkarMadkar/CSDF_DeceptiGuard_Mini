@@ -1,5 +1,7 @@
+// Database connection manager for connecting to MongoDB
 const mongoose = require('mongoose');
 
+// Connects to local or remote MongoDB instance using Mongoose
 const connectDB = async () => {
   const uri = process.env.MONGO_URI || 'mongodb://localhost:27017/deceptiguard';
   try {

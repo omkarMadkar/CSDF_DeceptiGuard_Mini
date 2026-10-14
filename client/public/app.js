@@ -1,185 +1,84 @@
-// ============================================================
-// DECEPTIGUARD INTERACTIVE FRONTEND APPLICATION
-// ============================================================
-
-let currentUser = {
-  username: 'admin',
-  role: 'admin',
-  department: 'IT',
-  token: null
-};
-
+// DeceptiGuard frontend controller managing real-time alerts, file access, traps, attack simulation, and forensics
+let currentUser = { username: 'onkar', role: 'admin', department: 'IT', token: null };
 let socket = null;
-let allAlerts = [];
-let allFiles = [];
-let isAudioEnabled = true;
-let isDarkTheme = false;
 
-// Chart instances
-let threatChart = null;
-let trendChart = null;
-
+// Initializes the application when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
-  initSocket();
   setupNavigation();
-  setupAuth();
-  setupPortal();
-  setupForensics();
-  setupSimulator();
-  setupTriageModal();
-  setupFilters();
-
-  // Load initial data
-  refreshSocDashboard();
-  loadPortalFiles();
-  loadDecoys();
-  loadIncidents();
-  loadCustodyLogs();
+  setupUserAuth();
+  setupSocket();
+  setupDashboard();
+  setupFiles();
+  setupTraps();
+  setupAttacks();
+  setupEvidenceAndCases();
+  autoLoginDefaultUser();
 });
 
-// ================= 1. THEME & AUDIO CONTROLS =================
+// Sets up theme mode from localStorage and binds toggle button
 function initTheme() {
-  const savedTheme = localStorage.getItem('deceptiguard_theme');
-  if (savedTheme === 'dark') {
-    setTheme(true);
-  } else {
-    setTheme(false); // Default Light Theme
-  }
-
+  const saved = localStorage.getItem('deceptiguard_theme') || 'light';
+  applyTheme(saved === 'dark');
   document.getElementById('btn-theme-toggle').addEventListener('click', () => {
-    setTheme(!isDarkTheme);
-  });
-
-  document.getElementById('btn-sound-toggle').addEventListener('click', () => {
-    isAudioEnabled = !isAudioEnabled;
-    document.getElementById('sound-icon').textContent = isAudioEnabled ? '🔊' : '🔇';
-    document.getElementById('sound-label').textContent = isAudioEnabled ? 'Audio On' : 'Muted';
-    showToast(isAudioEnabled ? 'Threat audio notifications enabled' : 'Threat audio muted', 'LOW');
+    applyTheme(!document.body.classList.contains('dark-theme'));
   });
 }
 
-function setTheme(dark) {
-  isDarkTheme = dark;
-  if (dark) {
-    document.body.classList.add('dark-theme');
-    document.body.classList.remove('light-theme');
-    document.getElementById('theme-icon').textContent = '🌙';
-    document.getElementById('theme-label').textContent = 'Dark Theme';
-    localStorage.setItem('deceptiguard_theme', 'dark');
-  } else {
-    document.body.classList.remove('dark-theme');
-    document.body.classList.add('light-theme');
-    document.getElementById('theme-icon').textContent = '☀️';
-    document.getElementById('theme-label').textContent = 'Light Theme';
-    localStorage.setItem('deceptiguard_theme', 'light');
-  }
-  updateChartsTheme();
+// Toggles CSS theme class and stores preference
+function applyTheme(isDark) {
+  document.body.classList.toggle('dark-theme', isDark);
+  document.body.classList.toggle('light-theme', !isDark);
+  document.getElementById('theme-icon').textContent = isDark ? '🌙' : '☀️';
+  document.getElementById('theme-label').textContent = isDark ? 'Dark Theme' : 'Light Theme';
+  localStorage.setItem('deceptiguard_theme', isDark ? 'dark' : 'light');
 }
 
-function playThreatBeep(isCritical = true) {
-  if (!isAudioEnabled) return;
-  try {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-
-    osc.type = isCritical ? 'sawtooth' : 'sine';
-    osc.frequency.setValueAtTime(isCritical ? 880 : 587.33, audioCtx.currentTime); // A5 or D5
-    osc.frequency.exponentialRampToValueAtTime(isCritical ? 440 : 293.66, audioCtx.currentTime + 0.25);
-
-    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
-
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.25);
-  } catch (e) {
-    // Ignore audio context autoplay restrictions if any
-  }
-}
-
-// ================= 2. SOCKET.IO INTEGRATION =================
-function initSocket() {
-  const wsStatus = document.getElementById('ws-status');
-  try {
-    socket = io(window.location.origin);
-
-    socket.on('connect', () => {
-      wsStatus.innerHTML = '<span class="pulse-dot"></span> SOC CONNECTED';
-      wsStatus.style.color = 'var(--palette-coral)';
-    });
-
-    socket.on('disconnect', () => {
-      wsStatus.innerHTML = '⚠️ RECONNECTING';
-      wsStatus.style.color = 'var(--palette-gold)';
-    });
-
-    socket.on('alert:new', (data) => {
-      handleIncomingAlert(data);
-    });
-  } catch (err) {
-    console.error('[Socket Error]', err);
-  }
-}
-
-function handleIncomingAlert(data) {
-  const alert = data.alert;
-  allAlerts.unshift(alert);
-
-  playThreatBeep(alert.severity === 'CRITICAL');
-  showToast(`🚨 THREAT TRIGGER: ${alert.username} violated ${alert.rulesFired.map(r=>r.ruleId).join(', ')}`, alert.severity);
-
-  renderAlertsTable(allAlerts);
-  refreshSocDashboard();
-  loadIncidents();
-  loadCustodyLogs();
-}
-
-// ================= 3. NAVIGATION =================
+// Sets up click listeners for switching between the 5 pages
 function setupNavigation() {
-  const tabs = document.querySelectorAll('.nav-tab');
-  tabs.forEach(tab => {
+  document.querySelectorAll('.nav-tab').forEach(tab => {
     tab.addEventListener('click', () => {
-      tabs.forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
       tab.classList.add('active');
       const targetId = tab.getAttribute('data-tab');
-      document.getElementById(targetId).classList.add('active');
+      const targetContent = document.getElementById(targetId);
+      if (targetContent) targetContent.classList.add('active');
 
-      if (targetId === 'soc-tab') refreshSocDashboard();
-      if (targetId === 'portal-tab') loadPortalFiles();
-      if (targetId === 'deception-tab') loadDecoys();
-      if (targetId === 'incidents-tab') loadIncidents();
-      if (targetId === 'forensics-tab') loadCustodyLogs();
+      if (targetId === 'dashboard-tab') loadDashboardData();
+      if (targetId === 'files-tab') loadCompanyFiles();
+      if (targetId === 'traps-tab') loadTrapsData();
+      if (targetId === 'evidence-tab') { loadEvidenceStatus(); loadCasesData(); }
     });
   });
 }
 
-// ================= 4. AUTH & PERSONA SWITCHER =================
-function setupAuth() {
-  const btnSwitch = document.getElementById('btn-switch-user');
+// Binds user switcher modal and persona selection buttons
+function setupUserAuth() {
   const modal = document.getElementById('user-modal');
-  const btnClose = document.getElementById('btn-close-modal');
-
-  btnSwitch.addEventListener('click', () => modal.classList.add('show'));
-  btnClose.addEventListener('click', () => modal.classList.remove('show'));
+  document.getElementById('btn-switch-user').addEventListener('click', () => modal.classList.add('show'));
+  document.getElementById('btn-close-modal').addEventListener('click', () => modal.classList.remove('show'));
 
   document.querySelectorAll('.persona-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const username = btn.getAttribute('data-user');
-      await switchUser(username);
+      await switchUser(btn.getAttribute('data-user'));
       modal.classList.remove('show');
     });
   });
-
-  switchUser('onkar', false);
 }
 
-async function switchUser(username, notify = true) {
+// Logs in automatically as onkar (Admin) on app launch
+async function autoLoginDefaultUser() {
+  await switchUser('onkar');
+  loadDashboardData();
+  loadCompanyFiles();
+  loadTrapsData();
+  loadEvidenceStatus();
+  loadCasesData();
+}
+
+// Switches active persona by calling login endpoint with Password123!
+async function switchUser(username) {
   try {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
@@ -187,625 +86,313 @@ async function switchUser(username, notify = true) {
       body: JSON.stringify({ username, password: 'Password123!' })
     });
     const data = await res.json();
+    if (res.ok && data.token) {
+      currentUser = { username: data.user.username, role: data.user.role, department: data.user.department, token: data.token };
+      document.getElementById('current-username').textContent = currentUser.username;
+      document.getElementById('current-user-role').textContent = currentUser.role;
+    } else {
+      alert(`Login simulated: ${data.error || 'Triggered security alert!'}`);
+      loadDashboardData();
+    }
+  } catch (err) { console.error('Login error:', err); }
+}
 
-    if (!res.ok) {
-      if (data.error && username.includes('backup')) {
-        playThreatBeep(true);
-        showToast(`⚠️ Decoy account access trapped! (Rule R2)`, 'CRITICAL');
-        return;
-      }
-      showToast(data.error || 'Login failed', 'HIGH');
+// Connects to WebSocket server for live alert notifications
+function setupSocket() {
+  if (typeof io !== 'undefined') {
+    socket = io();
+    socket.on('connect', () => {
+      document.getElementById('ws-status').innerHTML = '<span class="pulse-dot"></span> LIVE CONNECTED';
+    });
+    socket.on('alert:new', () => {
+      loadDashboardData();
+      loadTrapsData();
+      loadCasesData();
+    });
+  }
+}
+
+// Initializes dashboard periodic refreshes
+function setupDashboard() {
+  setInterval(() => {
+    const active = document.querySelector('.nav-tab.active');
+    if (active && active.getAttribute('data-tab') === 'dashboard-tab') loadDashboardData();
+  }, 10000);
+}
+
+// Fetches statistics, live alerts, and user risk leaderboard
+async function loadDashboardData() {
+  try {
+    const [statsRes, alertsRes, leadRes] = await Promise.all([
+      fetch('/api/soc/stats'), fetch('/api/soc/alerts'), fetch('/api/soc/leaderboard')
+    ]);
+    if (statsRes.ok) {
+      const s = await statsRes.json();
+      document.getElementById('stat-alerts').textContent = s.totalAlerts || 0;
+      document.getElementById('stat-critical').textContent = s.criticalAlerts || 0;
+      document.getElementById('stat-cases').textContent = s.openIncidents || 0;
+      document.getElementById('stat-traps').textContent = s.triggeredDecoys || 0;
+    }
+    if (alertsRes.ok) {
+      const { alerts } = await alertsRes.json();
+      renderAlertsList(alerts || []);
+    }
+    if (leadRes.ok) {
+      const { leaderboard } = await leadRes.json();
+      renderLeaderboard(leaderboard || []);
+    }
+  } catch (err) { console.error('Dashboard load error:', err); }
+}
+
+// Renders rows into the live threat alerts feed table
+function renderAlertsList(alerts) {
+  const tbody = document.getElementById('live-alerts-list');
+  if (!alerts || alerts.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No security alerts recorded yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = alerts.map(a => {
+    const rules = (a.rulesFired || []).map(r => r.ruleId).join(', ') || 'N/A';
+    const cls = a.severity === 'CRITICAL' ? 'badge coral' : (a.severity === 'HIGH' ? 'badge gold' : 'badge navy');
+    return `<tr>
+      <td style="font-family: monospace;">${new Date(a.createdAt).toLocaleTimeString()}</td>
+      <td><b>${escapeHtml(a.username)}</b> <small class="text-muted">(${escapeHtml(a.role || '')})</small></td>
+      <td><span class="${cls}">${a.severity}</span></td>
+      <td style="font-family: monospace; font-size: 12px;">${escapeHtml(a.targetAsset || 'N/A')}</td>
+      <td><span class="badge navy">${rules}</span></td>
+      <td><b>+${a.score || 0}</b></td>
+    </tr>`;
+  }).join('');
+}
+
+// Renders user risk scores with status badges
+function renderLeaderboard(users) {
+  const tbody = document.getElementById('risk-leaderboard-body');
+  if (!users || users.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No users found.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = users.map(u => {
+    const isFlagged = u.riskScore >= 90 || u.status === 'flagged';
+    const cls = isFlagged ? 'badge coral' : (u.riskScore >= 30 ? 'badge gold' : 'badge emerald');
+    const txt = isFlagged ? 'FLAGGED' : (u.riskScore > 0 ? 'MONITORED' : 'NORMAL');
+    return `<tr>
+      <td><b>${escapeHtml(u.username)}</b> <small class="text-muted">(${escapeHtml(u.role)})</small></td>
+      <td>${escapeHtml(u.department || 'General')}</td>
+      <td><b>${u.riskScore || 0}</b> pts</td>
+      <td><span class="${cls}">${txt}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// Binds search box and file viewer events in company files page
+function setupFiles() {
+  const searchInput = document.getElementById('portal-search-input');
+  document.getElementById('btn-search-files').addEventListener('click', () => loadCompanyFiles(searchInput.value.trim()));
+  searchInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') loadCompanyFiles(searchInput.value.trim()); });
+  document.getElementById('btn-close-doc-modal').addEventListener('click', () => document.getElementById('doc-modal').classList.remove('show'));
+}
+
+// Fetches and displays corporate files and trap lures
+async function loadCompanyFiles(query = '') {
+  try {
+    const headers = currentUser.token ? { 'Authorization': `Bearer ${currentUser.token}` } : {};
+    const url = query ? `/api/search?q=${encodeURIComponent(query)}` : '/api/files';
+    const res = await fetch(url, { headers });
+    const data = await res.json();
+    const files = data.files || [];
+    const tbody = document.getElementById('files-table-body');
+    if (files.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No documents found matching search.</td></tr>';
       return;
     }
-
-    currentUser = {
-      username: data.user.username,
-      role: data.user.role,
-      department: data.user.department,
-      token: data.token
-    };
-
-    document.getElementById('current-username').textContent = currentUser.username;
-    document.getElementById('current-user-role').textContent = currentUser.role;
-
-    if (notify) {
-      showToast(`Logged in as ${currentUser.username} (${currentUser.role})`, 'LOW');
-    }
-    loadPortalFiles();
-  } catch (err) {
-    console.error('[Auth Switch Error]', err);
-  }
+    tbody.innerHTML = files.map(f => `<tr>
+      <td><b>${escapeHtml(f.name)}</b></td>
+      <td>${escapeHtml(f.department || 'General')}</td>
+      <td><span class="badge ${f.sensitivity === 'Confidential' ? 'gold' : 'navy'}">${escapeHtml(f.sensitivity || 'Internal')}</span></td>
+      <td>${Math.round((f.sizeBytes || 1024) / 1024)} KB</td>
+      <td>
+        <button class="btn btn-secondary btn-sm" onclick="viewFileContent('${f._id}')">View</button>
+        <a class="btn btn-secondary btn-sm" href="/api/files/${f._id}/download?token=${currentUser.token || ''}" target="_blank">Download</a>
+      </td>
+    </tr>`).join('');
+  } catch (err) { console.error('Files error:', err); }
 }
 
-function getAuthHeaders() {
-  return {
-    'Content-Type': 'application/json',
-    ...(currentUser.token ? { 'Authorization': `Bearer ${currentUser.token}` } : {})
-  };
-}
-
-// ================= 5. SOC DASHBOARD & CHARTS =================
-async function refreshSocDashboard() {
+// Fetches a file's content and opens the preview modal
+window.viewFileContent = async function(fileId) {
   try {
-    // Stats
-    const statsRes = await fetch('/api/soc/stats');
-    const stats = await statsRes.json();
-    document.getElementById('kpi-total-alerts').textContent = stats.totalAlerts || 0;
-    document.getElementById('kpi-critical-alerts').textContent = stats.criticalAlerts || 0;
-    document.getElementById('kpi-open-incidents').textContent = stats.openIncidents || 0;
-    document.getElementById('kpi-deception-hit').textContent = `${stats.triggeredDecoys || 2} / ${stats.totalDecoys || 10}`;
-    document.getElementById('incident-badge-count').textContent = stats.openIncidents || 0;
-    if (document.getElementById('kpi-mttd')) {
-      document.getElementById('kpi-mttd').textContent = stats.mttdMs ? (stats.mttdMs + ' ms') : '< 50 ms';
+    const headers = currentUser.token ? { 'Authorization': `Bearer ${currentUser.token}` } : {};
+    const res = await fetch(`/api/files/${fileId}`, { headers });
+    const data = await res.json();
+    if (data.file) {
+      document.getElementById('doc-modal-title').textContent = data.file.name;
+      document.getElementById('doc-modal-meta').textContent = `Path: ${data.file.path} | Classification: ${data.file.sensitivity || 'Internal'}`;
+      document.getElementById('doc-modal-content').textContent = data.file.content || '[Binary document preview]';
+      document.getElementById('doc-modal').classList.add('show');
     }
+  } catch (err) { alert('Preview error: ' + err.message); }
+};
 
-    // Alerts
-    const alertsRes = await fetch('/api/soc/alerts');
-    const alertsData = await alertsRes.json();
-    allAlerts = alertsData.alerts || [];
-    document.getElementById('filter-count-all').textContent = allAlerts.length;
-    renderAlertsTable(allAlerts);
-
-    // Leaderboard
-    const lbRes = await fetch('/api/soc/leaderboard');
-    const lbData = await lbRes.json();
-    renderLeaderboard(lbData.leaderboard || []);
-
-    // Heatmap & Charts
-    const heatRes = await fetch('/api/soc/heatmap');
-    const heatData = await heatRes.json();
-    renderHeatmap(heatData.heatmap || []);
-
-    // Render interactive charts
-    renderCharts(allAlerts, heatData.heatmap || []);
-  } catch (err) {
-    console.error('[SOC Refresh Error]', err);
-  }
+// Initializes the traps page
+function setupTraps() {
+  loadTrapsData();
 }
 
-function renderAlertsTable(alerts) {
-  const tbody = document.getElementById('alerts-table-body');
-  if (alerts && alerts.length > 0) {
-    tbody.innerHTML = alerts.map(a => `
-      <tr>
-        <td>${new Date(a.createdAt).toLocaleTimeString()}</td>
-        <td><b>${a.username}</b> <span class="badge navy">${a.role}</span></td>
-        <td><code>${escapeHtml(a.targetAsset)}</code></td>
-        <td><span class="badge ${a.severity.toLowerCase()}">${a.severity}</span></td>
-        <td>${a.rulesFired.map(r => `<span title="${r.ruleName}" class="badge ${r.points>=90?'coral':'gold'}">${r.ruleId}</span>`).join(' ')}</td>
-        <td><b class="${a.score>=90?'text-coral':'text-gold'}">${a.score} pts</b></td>
-        <td><span class="badge gold">Validated #0-${alerts.indexOf(a)+1}</span></td>
-      </tr>
-    `).join('');
-  } else {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No threat alerts match this filter.</td></tr>';
-  }
-}
-
-function renderLeaderboard(users) {
-  const lbBody = document.getElementById('leaderboard-table-body');
-  if (users.length > 0) {
-    lbBody.innerHTML = users.map(u => `
-      <tr>
-        <td><b>${u.username}</b></td>
-        <td><span class="badge navy">${u.role}</span></td>
-        <td>${u.department}</td>
-        <td><b class="${u.riskScore>=90?'text-coral':(u.riskScore>=40?'text-gold':'text-navy')}">${u.riskScore}</b></td>
-        <td><span class="badge ${u.status==='flagged'?'coral':'emerald'}">${u.status}</span></td>
-      </tr>
-    `).join('');
-  } else {
-    lbBody.innerHTML = '<tr><td colspan="5" class="empty-state">No users loaded.</td></tr>';
-  }
-}
-
-function renderHeatmap(heatmapData) {
-  const heatContainer = document.getElementById('access-heatmap-grid');
-  if (heatmapData) {
-    heatContainer.innerHTML = heatmapData.map(h => {
-      const cls = h.isAfterHours ? (h.count > 0 ? 'afterhours-hit' : '') : (h.count > 0 ? 'active-activity' : '');
-      return `<div class="heatmap-cell ${cls}" title="${h.hour}: ${h.count} events recorded">
-        <div>${h.hour.split(':')[0]}h</div>
-        <div><b>${h.count}</b></div>
-      </div>`;
+// Loads the table of 6 traps with trigger counts
+async function loadTrapsData() {
+  try {
+    const res = await fetch('/api/soc/decoys');
+    const { decoys } = await res.json();
+    const tbody = document.getElementById('traps-table-body');
+    if (!decoys || decoys.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No deception traps registered.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = decoys.map(d => {
+      const type = d.type === 'HONEYFILE' ? 'Trap File' : (d.type === 'HONEYTOKEN' ? 'Fake Key' : (d.type === 'DECOY_ACCOUNT' ? 'Fake Account' : 'Trap Web Address'));
+      const cls = d.triggerCount > 0 ? 'badge coral' : 'badge emerald';
+      return `<tr>
+        <td><b>${escapeHtml(d.name)}</b></td>
+        <td><span class="badge navy">${type}</span></td>
+        <td style="font-family: monospace; font-size: 12px;">${escapeHtml(d.location || d.tokenValue || 'N/A')}</td>
+        <td><span class="${cls}">${d.triggerCount || 0} times</span></td>
+        <td><span class="badge emerald">ARMED</span></td>
+      </tr>`;
     }).join('');
-  }
+  } catch (err) { console.error('Traps error:', err); }
 }
 
-// ================= 6. INTERACTIVE CHART.JS CHARTS =================
-function renderCharts(alerts, heatmap) {
-  if (typeof Chart === 'undefined') return;
-
-  const coralColor = '#FF724C';
-  const goldColor = '#FDBF50';
-  const navyColor = isDarkTheme ? '#8B90B2' : '#2A2C41';
-  const lightBg = isDarkTheme ? '#353852' : '#ECECF2';
-
-  // 1. Donut Chart: Threat Vector Breakdown
-  const ctxThreat = document.getElementById('chart-threat-vectors');
-  if (ctxThreat) {
-    let honeyfilesCount = 0;
-    let tokensCount = 0;
-    let accountsCount = 0;
-    let exfilCount = 0;
-
-    alerts.forEach(a => {
-      const ids = a.rulesFired.map(r => r.ruleId);
-      if (ids.includes('R1')) honeyfilesCount++;
-      if (ids.includes('R3')) tokensCount++;
-      if (ids.includes('R2')) accountsCount++;
-      if (ids.includes('R4') || ids.includes('R5')) exfilCount++;
-    });
-
-    if (honeyfilesCount === 0 && tokensCount === 0) {
-      honeyfilesCount = 2; tokensCount = 1; accountsCount = 1; exfilCount = 1;
-    }
-
-    if (threatChart) threatChart.destroy();
-    threatChart = new Chart(ctxThreat, {
-      type: 'doughnut',
-      data: {
-        labels: ['Honeyfiles (R1)', 'Honeytokens (R3)', 'Decoy Accounts (R2)', 'Off-Hours Exfil (R4/R5)'],
-        datasets: [{
-          data: [honeyfilesCount, tokensCount, accountsCount, exfilCount],
-          backgroundColor: ['#FF724C', '#FDBF50', '#2A2C41', '#10B981'],
-          borderWidth: 2,
-          borderColor: isDarkTheme ? '#2A2C41' : '#FFFFFF'
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'right',
-            labels: { boxWidth: 12, color: isDarkTheme ? '#F4F4F8' : '#2A2C41', font: { family: 'Plus Jakarta Sans', size: 11, weight: 600 } }
-          }
-        }
-      }
-    });
-  }
-
-  // 2. Bar Chart: Hourly Activity & Threat Spikes
-  const ctxTrend = document.getElementById('chart-hourly-trend');
-  if (ctxTrend && heatmap && heatmap.length > 0) {
-    const labels = heatmap.map(h => h.hour);
-    const dataVals = heatmap.map(h => h.count || 0);
-
-    if (trendChart) trendChart.destroy();
-    trendChart = new Chart(ctxTrend, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Telemetry Access Events',
-          data: dataVals,
-          backgroundColor: labels.map((l, idx) => (idx < 9 || idx >= 19) ? 'rgba(255, 114, 76, 0.7)' : 'rgba(253, 191, 80, 0.75)'),
-          borderRadius: 4
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false }
-        },
-        scales: {
-          x: {
-            ticks: { color: isDarkTheme ? '#B6B8CE' : '#646884', font: { size: 9 } },
-            grid: { display: false }
-          },
-          y: {
-            ticks: { color: isDarkTheme ? '#B6B8CE' : '#646884', stepSize: 2 },
-            grid: { color: isDarkTheme ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }
-          }
-        }
-      }
-    });
-  }
-}
-
-function updateChartsTheme() {
-  if (threatChart || trendChart) {
-    renderCharts(allAlerts, []);
-  }
-}
-
-// ================= 7. ALERT & PORTAL FILTERS =================
-function setupFilters() {
-  // Alert Feed Filter Pills
-  document.querySelectorAll('#alert-filters .pill-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#alert-filters .pill-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-
-      const filter = btn.getAttribute('data-filter');
-      if (filter === 'ALL') {
-        renderAlertsTable(allAlerts);
-      } else if (filter === 'CRITICAL') {
-        renderAlertsTable(allAlerts.filter(a => a.severity === 'CRITICAL'));
-      } else {
-        renderAlertsTable(allAlerts.filter(a => a.rulesFired.some(r => r.ruleId === filter)));
-      }
-    });
-  });
-
-  // Department Filter Chips
-  document.querySelectorAll('.dept-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      document.querySelectorAll('.dept-chip').forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-
-      const dept = chip.getAttribute('data-dept');
-      if (dept === 'ALL') {
-        renderPortalFiles(allFiles);
-      } else {
-        renderPortalFiles(allFiles.filter(f => f.department.toLowerCase() === dept.toLowerCase()));
-      }
-    });
+// Binds the 5 attack simulation scenario buttons
+function setupAttacks() {
+  ['s1', 's2', 's3', 's4', 's5'].forEach(s => {
+    document.getElementById(`btn-attack-${s}`).addEventListener('click', () => runAttackScenario(s.toUpperCase()));
   });
 }
 
-// ================= 8. EMPLOYEE PORTAL & DOCUMENT PREVIEW =================
-function setupPortal() {
-  const btnSearch = document.getElementById('btn-portal-search');
-  const searchInput = document.getElementById('portal-search-input');
-  const docModal = document.getElementById('doc-modal');
-  const btnCloseDoc = document.getElementById('btn-close-doc-modal');
-
-  btnSearch.addEventListener('click', () => searchPortal(searchInput.value.trim()));
-  searchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') searchPortal(searchInput.value.trim());
-  });
-
-  btnCloseDoc.addEventListener('click', () => docModal.classList.remove('show'));
-}
-
-async function loadPortalFiles() {
+// Sends attack simulation request and displays formatted results with MTTD
+async function runAttackScenario(scenarioId) {
+  const box = document.getElementById('attack-result-box');
+  box.textContent = `Executing Scenario ${scenarioId}...`;
   try {
-    const res = await fetch('/api/files', { headers: getAuthHeaders() });
+    const headers = { 'Content-Type': 'application/json' };
+    if (currentUser.token) headers['Authorization'] = `Bearer ${currentUser.token}`;
+    const res = await fetch(`/api/sim/run/${scenarioId}`, { method: 'POST', headers });
     const data = await res.json();
-    allFiles = data.files || [];
-    renderPortalFiles(allFiles);
-  } catch (err) {
-    console.error('[Portal Files Error]', err);
-  }
-}
-
-function renderPortalFiles(files) {
-  const tbody = document.getElementById('portal-files-body');
-  if (files && files.length > 0) {
-    tbody.innerHTML = files.map(f => `
-      <tr>
-        <td><b>📄 ${escapeHtml(f.name)}</b></td>
-        <td><code>${escapeHtml(f.path)}</code></td>
-        <td><span class="badge navy">${f.department}</span></td>
-        <td><span class="badge ${f.sensitivity==='Confidential'?'coral':'gold'}">${f.sensitivity}</span></td>
-        <td>${Math.round(f.sizeBytes / 1024)} KB</td>
-        <td>
-          <button class="btn btn-secondary btn-sm" onclick="viewDocument('${f.id}')">View</button>
-          <button class="btn btn-secondary btn-sm" onclick="downloadDocument('${f.id}')">Download</button>
-        </td>
-      </tr>
-    `).join('');
-  } else {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No departmental files found.</td></tr>';
-  }
-}
-
-async function searchPortal(query) {
-  try {
-    const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { headers: getAuthHeaders() });
-    const data = await res.json();
-    if (data.alertTriggered) {
-      playThreatBeep(true);
-      showToast('⚠️ Honeytoken search canary triggered by Deception Engine!', 'CRITICAL');
+    if (!res.ok) {
+      box.innerHTML = `<span style="color:#EF4444;">Error executing attack: ${escapeHtml(data.error || 'Failed')}</span>`;
+      return;
     }
-    renderPortalFiles(data.results || []);
-  } catch (err) {
-    console.error('[Search Error]', err);
-  }
+    const rules = (data.rulesFired && data.rulesFired.length > 0) ? data.rulesFired.join(', ') : 'None (No alert)';
+    box.innerHTML = `
+      <div><b>Scenario:</b> ${escapeHtml(data.name)} (${data.scenario})</div>
+      <div><b>Who:</b> ${escapeHtml(data.who)}</div>
+      <div><b>What Happened:</b> ${escapeHtml(data.what)}</div>
+      <div><b>Rules Fired:</b> <span class="badge navy">${escapeHtml(rules)}</span></div>
+      <div><b>Penalty Points:</b> <b>+${data.points || 0}</b> pts</div>
+      <div><b>Time to Detect (MTTD):</b> <span style="color:#10B981; font-weight:bold;">${data.mttdMs} ms</span> (Measured)</div>
+    `;
+    loadDashboardData();
+    loadTrapsData();
+    loadCasesData();
+  } catch (err) { box.innerHTML = `<span style="color:#EF4444;">Error: ${escapeHtml(err.message)}</span>`; }
 }
 
-async function viewDocument(id) {
-  try {
-    const res = await fetch(`/api/files/${id}`, { headers: getAuthHeaders() });
-    const data = await res.json();
-    if (data.alertTriggered) {
-      playThreatBeep(true);
-      showToast('⚠️ Honeyfile access alarm triggered on SOC feed!', 'CRITICAL');
-    }
-    document.getElementById('doc-modal-title').textContent = data.file.name;
-    document.getElementById('doc-modal-meta').textContent = `Path: ${data.file.path} | Classification: ${data.file.sensitivity} | Department: ${data.file.department}`;
-
-    const previewContainer = document.getElementById('doc-modal-preview-container');
-    // Check if it's an Excel spreadsheet honeyfile
-    if (data.file.name.endsWith('.xlsx')) {
-      previewContainer.innerHTML = `
-        <table class="spreadsheet-grid">
-          <thead>
-            <tr><th>Row</th><th>Employee Name</th><th>Designation</th><th>Salary (Annual)</th><th>Bonus %</th><th>Canary Canary ID</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>1</td><td>Johnathan Davis</td><td>VP Engineering</td><td>$245,000</td><td>25%</td><td>CANARY_CANARY_01</td></tr>
-            <tr class="highlight-canary"><td>2</td><td>Marcus Sterling</td><td>Chief Financial Officer</td><td>$320,000</td><td>35%</td><td>CANARY_EXECUTIVE_TOKEN_99X</td></tr>
-            <tr><td>3</td><td>Elena Rostova</td><td>Director HR</td><td>$195,000</td><td>20%</td><td>CANARY_CANARY_03</td></tr>
-            <tr><td>4</td><td>David Chen</td><td>Lead Architect</td><td>$185,000</td><td>15%</td><td>CANARY_CANARY_04</td></tr>
-          </tbody>
-        </table>
-      `;
-    } else {
-      previewContainer.innerHTML = `<pre class="doc-text">${escapeHtml(data.file.content || '[Empty Document]')}</pre>`;
-    }
-
-    document.getElementById('doc-modal').classList.add('show');
-  } catch (err) {
-    console.error('[View Doc Error]', err);
-  }
+// Binds evidence verification, tamper test, and fix evidence buttons
+function setupEvidenceAndCases() {
+  document.getElementById('btn-check-evidence').addEventListener('click', loadEvidenceStatus);
+  document.getElementById('btn-tamper-test').addEventListener('click', runTamperTest);
+  document.getElementById('btn-fix-evidence').addEventListener('click', runFixEvidence);
 }
 
-function downloadDocument(id) {
-  window.location.href = `/api/files/${id}/download`;
-}
-
-// ================= 9. DIGITAL FORENSICS =================
-function setupForensics() {
-  document.getElementById('btn-verify-chain').addEventListener('click', verifyHashChain);
-  document.getElementById('btn-tamper-demo').addEventListener('click', tamperDemo);
-  document.getElementById('btn-restore-chain').addEventListener('click', restoreHashChain);
-}
-
-async function verifyHashChain() {
+// Checks cryptographic hash chain integrity and updates banner color
+async function loadEvidenceStatus() {
+  const banner = document.getElementById('evidence-status-banner');
   try {
     const res = await fetch('/api/forensics/verify');
     const data = await res.json();
-    const card = document.getElementById('verification-result-card');
-
     if (data.valid) {
-      card.innerHTML = `
-        <div class="status-indicator intact">
-          <span class="status-icon">✓</span>
-          <div class="status-text">
-            <h4>CHAIN INTEGRITY: PRISTINE & VALID (${data.count} BLOCKS VERIFIED)</h4>
-            <p>All recursive SHA-256 digests mathematically match. Latest Ledger Root: <code>${(data.latestHash||'').slice(0, 24)}...</code></p>
-          </div>
-        </div>
-      `;
-      showToast(`Forensic hash chain mathematically verified (${data.count} blocks intact).`, 'LOW');
+      banner.style.background = 'rgba(16, 185, 129, 0.15)';
+      banner.style.borderColor = '#10B981';
+      banner.style.color = '#10B981';
+      banner.textContent = `✅ All ${data.count || 0} blocks are fine`;
     } else {
-      playThreatBeep(true);
-      card.innerHTML = `
-        <div class="status-indicator broken">
-          <span class="status-icon">✕</span>
-          <div class="status-text">
-            <h4 class="text-coral">TAMPERING DETECTED AT BLOCK SEQUENCE #${data.brokenSeq}</h4>
-            <p class="text-coral">Cryptographic digest mismatch: ${data.reason}. Expected: <code>${(data.expectedHash||'').slice(0, 16)}...</code> vs Actual: <code>${(data.actualHash||'').slice(0, 16)}...</code></p>
-          </div>
-        </div>
-      `;
-      showToast(`Tampering detected at sequence #${data.brokenSeq}! Integrity broken!`, 'CRITICAL');
+      banner.style.background = 'rgba(239, 68, 68, 0.15)';
+      banner.style.borderColor = '#EF4444';
+      banner.style.color = '#EF4444';
+      banner.textContent = `❌ Block number ${data.brokenSeq || '?'} was changed`;
     }
-    loadCustodyLogs();
-  } catch (err) {
-    console.error('[Verify Error]', err);
-  }
+  } catch (err) { banner.textContent = 'Error checking integrity: ' + err.message; }
 }
 
-async function tamperDemo() {
+// Purposefully alters Block #1 in the database for lab demonstration
+async function runTamperTest() {
   try {
-    const res = await fetch('/api/forensics/tamper-demo', { method: 'POST', headers: getAuthHeaders() });
+    const headers = currentUser.token ? { 'Authorization': `Bearer ${currentUser.token}` } : {};
+    const res = await fetch('/api/forensics/tamper-demo', { method: 'POST', headers });
     const data = await res.json();
-    showToast(`Tampered with sequence #${data.tamperedSeq}. Now click 'Verify Evidentiary Chain' to see break!`, 'HIGH');
-    await verifyHashChain();
-  } catch (err) {
-    console.error('[Tamper Demo Error]', err);
-  }
+    if (res.ok) await loadEvidenceStatus();
+    else alert(data.error || 'Tamper test requires Admin login.');
+  } catch (err) { alert('Tamper error: ' + err.message); }
 }
 
-async function restoreHashChain() {
+// Restores evidence block hashes back to pristine valid condition
+async function runFixEvidence() {
   try {
-    await fetch('/api/forensics/restore-chain', { method: 'POST', headers: getAuthHeaders() });
-    showToast('Chain re-synchronized. All hashes restored.', 'LOW');
-    await verifyHashChain();
-  } catch (err) {
-    console.error('[Restore Error]', err);
-  }
-}
-
-async function loadCustodyLogs() {
-  try {
-    const res = await fetch('/api/forensics/custody');
+    const headers = currentUser.token ? { 'Authorization': `Bearer ${currentUser.token}` } : {};
+    const res = await fetch('/api/forensics/restore-chain', { method: 'POST', headers });
     const data = await res.json();
-    const tbody = document.getElementById('custody-log-body');
-    if (data.custodyLogs && data.custodyLogs.length > 0) {
-      tbody.innerHTML = data.custodyLogs.map(l => `
-        <tr>
-          <td>${new Date(l.ts).toLocaleString()}</td>
-          <td><b>${l.actor}</b></td>
-          <td><span class="badge navy">${l.action}</span></td>
-          <td>${escapeHtml(l.detail)}</td>
-          <td><code>${l.fileSha256 ? l.fileSha256.slice(0, 20) + '...' : 'Ledger Ingest'}</code></td>
-        </tr>
-      `).join('');
-    } else {
-      tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No custodial actions recorded yet.</td></tr>';
-    }
-  } catch (err) {
-    console.error('[Custody Log Error]', err);
-  }
+    if (res.ok) await loadEvidenceStatus();
+    else alert(data.error || 'Fix evidence requires Admin login.');
+  } catch (err) { alert('Fix evidence error: ' + err.message); }
 }
 
-// ================= 10. INCIDENT CASE MANAGEMENT & TRIAGE =================
-async function loadIncidents() {
+// Loads forensic incident cases with status dropdown and PDF export button
+async function loadCasesData() {
   try {
     const res = await fetch('/api/forensics/incidents');
-    const data = await res.json();
-    const tbody = document.getElementById('incidents-table-body');
-    if (data.incidents && data.incidents.length > 0) {
-      tbody.innerHTML = data.incidents.map(inc => `
-        <tr>
-          <td><code>#${inc._id.slice(-6)}</code></td>
-          <td><b>${escapeHtml(inc.title)}</b></td>
-          <td><b>${inc.suspectUsername}</b></td>
-          <td><span class="badge ${inc.severity.toLowerCase()}">${inc.severity}</span></td>
-          <td><span class="badge ${inc.status==='Closed'?'emerald':(inc.status==='Contained'?'gold':'coral')}">${inc.status}</span></td>
-          <td>${(inc.mitreTechniques||[]).map(t=>`<span class="badge navy">${t}</span>`).join(' ')}</td>
-          <td>${new Date(inc.createdAt).toLocaleTimeString()}</td>
-          <td>
-            <button class="btn btn-secondary btn-sm" onclick="openTriageModal('${inc._id}', '${inc.status}', '${escapeHtml(inc.title)}')">Triage</button>
-            <a href="/api/forensics/incidents/${inc._id}/export?format=pdf" class="btn btn-primary btn-sm" target="_blank">PDF</a>
-            <a href="/api/forensics/incidents/${inc._id}/export?format=csv" class="btn btn-secondary btn-sm" target="_blank">CSV</a>
-          </td>
-        </tr>
-      `).join('');
-    } else {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No active incidents. Trigger an attack scenario to create one.</td></tr>';
+    const { incidents } = await res.json();
+    const tbody = document.getElementById('cases-table-body');
+    if (!incidents || incidents.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No cases open.</td></tr>';
+      return;
     }
-  } catch (err) {
-    console.error('[Incidents Error]', err);
-  }
+    tbody.innerHTML = incidents.map(inc => {
+      const cls = inc.severity === 'CRITICAL' ? 'badge coral' : (inc.severity === 'HIGH' ? 'badge gold' : 'badge navy');
+      return `<tr>
+        <td><b>${escapeHtml(inc.title)}</b></td>
+        <td><b>${escapeHtml(inc.suspectUsername)}</b></td>
+        <td><span class="${cls}">${inc.severity}</span></td>
+        <td>
+          <select onchange="updateCaseStatus('${inc._id}', this.value)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main);">
+            <option value="Open" ${inc.status === 'Open' ? 'selected' : ''}>Open</option>
+            <option value="Checking" ${inc.status === 'Checking' ? 'selected' : ''}>Checking</option>
+            <option value="Closed" ${inc.status === 'Closed' ? 'selected' : ''}>Closed</option>
+          </select>
+        </td>
+        <td style="font-size: 12px;">${new Date(inc.createdAt).toLocaleString()}</td>
+        <td><a class="btn btn-primary btn-sm" href="/api/forensics/incidents/${inc._id}/export?format=pdf" target="_blank">Download PDF</a></td>
+      </tr>`;
+    }).join('');
+  } catch (err) { console.error('Cases error:', err); }
 }
 
-function setupTriageModal() {
-  const modal = document.getElementById('incident-triage-modal');
-  const btnClose = document.getElementById('btn-close-triage-modal');
-  const btnSave = document.getElementById('btn-save-triage');
-
-  btnClose.addEventListener('click', () => modal.classList.remove('show'));
-
-  btnSave.addEventListener('click', async () => {
-    const id = document.getElementById('triage-incident-id').value;
-    const status = document.getElementById('triage-status-select').value;
-    const note = document.getElementById('triage-note-input').value.trim();
-
-    try {
-      const res = await fetch(`/api/forensics/incidents/${id}/status`, {
-        method: 'PATCH',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ status, note })
-      });
-      if (res.ok) {
-        showToast(`Incident #${id.slice(-6)} updated to ${status}`, 'LOW');
-        modal.classList.remove('show');
-        loadIncidents();
-        loadCustodyLogs();
-      }
-    } catch (err) {
-      console.error('[Triage Save Error]', err);
-    }
-  });
-}
-
-function openTriageModal(id, currentStatus, title) {
-  document.getElementById('triage-incident-id').value = id;
-  document.getElementById('triage-status-select').value = currentStatus;
-  document.getElementById('triage-note-input').value = '';
-  document.getElementById('triage-modal-title').textContent = `Triage Case: ${title.slice(0, 32)}...`;
-  document.getElementById('incident-triage-modal').classList.add('show');
-}
-
-// ================= 11. DECEPTION MANAGER =================
-async function loadDecoys() {
+// Updates an incident's status when the dropdown changes
+window.updateCaseStatus = async function(caseId, newStatus) {
   try {
-    const res = await fetch('/api/soc/decoys');
-    const data = await res.json();
-    const tbody = document.getElementById('decoys-table-body');
-    if (data.decoys && data.decoys.length > 0) {
-      tbody.innerHTML = data.decoys.map(d => `
-        <tr>
-          <td><span class="badge navy">${d.type}</span></td>
-          <td><b>${escapeHtml(d.name)}</b></td>
-          <td><code>${escapeHtml(d.location)}</code></td>
-          <td><code>${d.tokenValue ? escapeHtml(d.tokenValue) : 'N/A'}</code></td>
-          <td><span class="badge ${d.severity.toLowerCase()}">${d.severity}</span></td>
-          <td><span class="badge ${d.enabled?'emerald':'coral'}">${d.enabled?'ARMED':'DISABLED'}</span></td>
-          <td><b class="${d.triggerCount>0?'text-coral':''}">${d.triggerCount}</b></td>
-          <td>${d.lastTriggeredAt ? new Date(d.lastTriggeredAt).toLocaleTimeString() : 'Never'}</td>
-          <td>
-            <button class="btn btn-secondary btn-sm" onclick="toggleDecoy('${d._id}')">
-              ${d.enabled ? 'Disarm' : 'Arm'}
-            </button>
-          </td>
-        </tr>
-      `).join('');
-    }
-  } catch (err) {
-    console.error('[Decoys Error]', err);
-  }
-}
-
-async function toggleDecoy(id) {
-  try {
-    await fetch(`/api/soc/decoys/${id}/toggle`, { method: 'PATCH' });
-    loadDecoys();
-  } catch (err) {
-    console.error('[Toggle Decoy Error]', err);
-  }
-}
-
-// ================= 12. ATTACK SIMULATOR =================
-function setupSimulator() {
-  document.querySelectorAll('.btn-run-sim').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const scenario = btn.getAttribute('data-scenario');
-      runScenario(scenario);
+    const headers = { 'Content-Type': 'application/json' };
+    if (currentUser.token) headers['Authorization'] = `Bearer ${currentUser.token}`;
+    await fetch(`/api/forensics/incidents/${caseId}/status`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ status: newStatus })
     });
-  });
-}
+    loadDashboardData();
+  } catch (err) { console.error('Update status error:', err); }
+};
 
-async function runScenario(scenarioId) {
-  const terminal = document.getElementById('sim-output-pre');
-  const statusLabel = document.getElementById('sim-status-label');
-  statusLabel.textContent = `Running ${scenarioId}...`;
-  terminal.textContent = `[+] Initializing scenario ${scenarioId} payload execution...\n[*] Dispatching requests to DeceptiGuard security boundary...\n`;
-
-  try {
-    const res = await fetch(`/api/sim/run/${scenarioId}`, { method: 'POST' });
-    const data = await res.json();
-    statusLabel.textContent = `Completed (${data.mttdMs}ms)`;
-
-    terminal.textContent += `[+] Scenario: ${data.name || scenarioId}\n`;
-    terminal.textContent += `[+] Expected Alarm: ${data.expectedAlert}\n`;
-    terminal.textContent += `[+] Mean Time To Detect (MTTD): ${data.mttdMs} ms (< 2.0s target reached)\n`;
-    terminal.textContent += `[+] Telemetry Result: ${JSON.stringify(data.result || data.events, null, 2)}\n`;
-
-    if (scenarioId !== 'S5') {
-      playThreatBeep(true);
-    }
-    showToast(`Scenario ${scenarioId} executed: MTTD ${data.mttdMs}ms`, 'LOW');
-    refreshSocDashboard();
-    loadIncidents();
-  } catch (err) {
-    statusLabel.textContent = 'Error';
-    terminal.textContent += `[-] Execution failed: ${err.message}\n`;
-  }
-}
-
-// ================= TOAST NOTIFICATIONS =================
-function showToast(message, severity = 'LOW') {
-  const container = document.getElementById('toast-container');
-  const toast = document.createElement('div');
-  toast.className = 'toast';
-  if (severity === 'CRITICAL') toast.style.borderLeftColor = 'var(--palette-coral)';
-  else if (severity === 'HIGH') toast.style.borderLeftColor = 'var(--palette-gold)';
-  else toast.style.borderLeftColor = 'var(--accent-emerald)';
-
-  toast.innerHTML = `
-    <span style="font-size: 18px;">${severity==='CRITICAL'?'🚨':(severity==='HIGH'?'⚠️':'🔔')}</span>
-    <div>
-      <b style="font-size: 11px; text-transform: uppercase; color: var(--text-dim);">${severity} SEVERITY</b>
-      <p style="font-size: 12.5px; margin-top: 2px;">${escapeHtml(message)}</p>
-    </div>
-  `;
-  container.appendChild(toast);
-  setTimeout(() => toast.remove(), 4500);
-}
-
+// Escapes special characters to safely render text inside HTML
 function escapeHtml(str) {
   if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }

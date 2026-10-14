@@ -1,10 +1,9 @@
+// Utility service for checking trap files, scanning canary tokens, and recording trigger metrics
 const Decoy = require('../models/Decoy');
 const File = require('../models/File');
 
 class DeceptionManager {
-  /**
-   * Checks if a target path, filename or decoyId corresponds to a honeyfile/decoy.
-   */
+  // Checks if a file path, file ID, or name corresponds to an active deception trap
   static async checkDecoyHit(targetPath, fileId = null) {
     if (fileId) {
       const file = await File.findById(fileId);
@@ -25,9 +24,7 @@ class DeceptionManager {
     return { isDecoy: false, decoy: null };
   }
 
-  /**
-   * Scans a string (search query, input parameter, body) for any active canary honeytoken.
-   */
+  // Scans an input string or query to detect any submitted canary honeytokens
   static async checkHoneytoken(inputValue) {
     if (!inputValue || typeof inputValue !== 'string') return null;
     
@@ -40,9 +37,7 @@ class DeceptionManager {
     return null;
   }
 
-  /**
-   * Increments trigger statistics for a decoy
-   */
+  // Increments the hit counter and updates timestamp whenever a trap is triggered
   static async recordTrigger(decoyId) {
     if (!decoyId) return;
     try {

@@ -1,32 +1,18 @@
+// Handles file browsing, file viewing, file downloads, search, and trap address interception
 const File = require('../models/File');
 const Event = require('../models/Event');
-const DeceptionManager = require('../services/DeceptionManager');
 
 class PortalController {
+  // Returns available company files and disguised trap files for browsing
   static async getFiles(req, res, rulesEngine) {
     try {
       const user = req.user;
       const { path } = req.query;
 
-      // Log Directory Browse
-      if (path) {
-        const rawEvent = await Event.create({
-          userId: user.userId,
-          username: user.username,
-          role: user.role,
-          action: 'DIRECTORY_BROWSE',
-          target: path || '/',
-          ip: req.ip || '127.0.0.1'
-        });
-        await rulesEngine.processEvent(rawEvent);
-      }
-
-      // Return files matching path or user's department + honeyfiles in realistic locations
       let query = {};
       if (path) {
         query.path = new RegExp(`^${path}`, 'i');
       } else if (user.role !== 'admin') {
-        // Return own department files + realistic honeyfiles
         query = {
           $or: [
             { department: user.department },
@@ -36,9 +22,8 @@ class PortalController {
       }
 
       const files = await File.find(query).select('-content');
-      // Crucial requirement: No "decoy" badge visible to normal users
       const sanitized = files.map(f => ({
-        id: f._id,
+        _id: f._id,
         name: f.name,
         path: f.path,
         department: f.department,
@@ -55,6 +40,7 @@ class PortalController {
     }
   }
 
+  // Opens a file and checks whether opening a trap file triggers Rule R1
   static async viewFile(req, res, rulesEngine) {
     try {
       const { id } = req.params;
@@ -65,7 +51,6 @@ class PortalController {
         return res.status(404).json({ error: 'Document not found' });
       }
 
-      const isCrossDepartment = user.role !== 'admin' && file.department !== user.department && file.department !== 'Public';
       const rawEvent = await Event.create({
         userId: user.userId,
         username: user.username,
@@ -75,8 +60,7 @@ class PortalController {
         ip: req.ip || '127.0.0.1',
         metadata: {
           isDecoy: file.isDecoy,
-          sensitivity: file.sensitivity,
-          roleMismatch: isCrossDepartment
+          sensitivity: file.sensitivity
         }
       });
 
@@ -99,6 +83,7 @@ class PortalController {
     }
   }
 
+  // Allows file download and records download telemetry for Rule R5 evaluation
   static async downloadFile(req, res, rulesEngine) {
     try {
       const { id } = req.params;
@@ -124,12 +109,13 @@ class PortalController {
 
       res.setHeader('Content-Disposition', `attachment; filename="${file.name}"`);
       res.setHeader('Content-Type', 'text/plain');
-      res.send(file.content || 'Acme Corp Proprietary Artifact Content');
+      res.send(file.content || 'Acme Corp Proprietary File Content');
     } catch (err) {
       res.status(500).json({ error: 'Download failed' });
     }
   }
 
+  // Searches documents by keyword and detects if the fake canary key was queried (Rule R3)
   static async searchFiles(req, res, rulesEngine) {
     try {
       const { q } = req.query;
@@ -152,11 +138,12 @@ class PortalController {
       }).select('-content');
 
       res.json({
-        results: files.map(f => ({
-          id: f._id,
+        files: files.map(f => ({
+          _id: f._id,
           name: f.name,
           path: f.path,
           department: f.department,
+          sizeBytes: f.sizeBytes,
           sensitivity: f.sensitivity
         })),
         alertTriggered: outcome.firedRules.length > 0
@@ -166,6 +153,7 @@ class PortalController {
     }
   }
 
+  // Catches access attempts to hidden trap web addresses and triggers Rule R1
   static async decoyTrapHandler(req, res, rulesEngine, trapName) {
     try {
       const user = req.user || { username: 'anonymous_intruder', role: 'guest', userId: null };
@@ -183,7 +171,7 @@ class PortalController {
       await rulesEngine.processEvent(rawEvent);
 
       return res.status(403).json({
-        error: 'Security Audit Violation: Unauthorized Shadow Endpoint Access Detected and Logged.'
+        error: 'Security Audit: Access to unauthorized trap address recorded.'
       });
     } catch (err) {
       res.status(500).json({ error: 'Trap failed' });
