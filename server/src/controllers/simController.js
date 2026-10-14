@@ -37,6 +37,9 @@ class SimController {
           rulesFired: result.firedRules.map(r => `${r.id}: ${r.name}`),
           points: result.addedScore,
           mttdMs,
+          evidenceSeq: result.evidenceBlock?.seq || null,
+          evidenceHash: result.evidenceBlock?.hash || null,
+          caseTitle: result.incident?.title || null,
           result
         });
       }
@@ -74,6 +77,8 @@ class SimController {
         const mttdMs = Date.now() - startTime;
         const allRules = [...(res1.firedRules || []), ...(res2.firedRules || [])];
         const totalPoints = (res1.addedScore || 0) + (res2.addedScore || 0);
+        const finalBlock = res2.evidenceBlock || res1.evidenceBlock;
+        const finalIncident = res2.incident || res1.incident;
 
         return res.json({
           scenario: 'S2',
@@ -84,6 +89,9 @@ class SimController {
           rulesFired: allRules.map(r => `${r.id}: ${r.name}`),
           points: totalPoints,
           mttdMs,
+          evidenceSeq: finalBlock?.seq || null,
+          evidenceHash: finalBlock?.hash || null,
+          caseTitle: finalIncident?.title || null,
           events: [res1, res2]
         });
       }
@@ -129,6 +137,9 @@ class SimController {
           rulesFired: result.firedRules.map(r => `${r.id}: ${r.name}`),
           points: result.addedScore,
           mttdMs,
+          evidenceSeq: result.evidenceBlock?.seq || null,
+          evidenceHash: result.evidenceBlock?.hash || null,
+          caseTitle: result.incident?.title || null,
           result
         });
       }
@@ -161,6 +172,9 @@ class SimController {
           rulesFired: result.firedRules.map(r => `${r.id}: ${r.name}`),
           points: result.addedScore,
           mttdMs,
+          evidenceSeq: result.evidenceBlock?.seq || null,
+          evidenceHash: result.evidenceBlock?.hash || null,
+          caseTitle: result.incident?.title || null,
           result
         });
       }
@@ -193,6 +207,9 @@ class SimController {
           rulesFired: result.firedRules.map(r => `${r.id}: ${r.name}`),
           points: result.addedScore,
           mttdMs,
+          evidenceSeq: null,
+          evidenceHash: null,
+          caseTitle: null,
           result
         });
       }

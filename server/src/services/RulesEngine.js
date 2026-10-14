@@ -28,6 +28,9 @@ class RulesEngine {
   async processEvent(event) {
     const firedRules = [];
     let addedScore = 0;
+    let createdAlert = null;
+    let evidenceBlock = null;
+    let incident = null;
 
     // Rule R1: Trap file opened or trap address hit
     const decoyCheck = await DeceptionManager.checkDecoyHit(event.target);
@@ -110,7 +113,7 @@ class RulesEngine {
         : (firedRules.some(r => r.severity === 'HIGH') ? 'HIGH' : 'MEDIUM');
 
       // Create alert document
-      const createdAlert = await Alert.create({
+      createdAlert = await Alert.create({
         eventId: event._id,
         userId: user?._id || null,
         username: event.username,
@@ -128,20 +131,20 @@ class RulesEngine {
       });
 
       // Append evidence block to cryptographic hash chain
-      const evidenceBlock = await ForensicsChain.appendEvidence(event._id, event);
+      evidenceBlock = await ForensicsChain.appendEvidence(event._id, event);
 
       // Create or update case
       const dynamicRootCause = firedRules.some(r => r.id === 'R4' || r.id === 'R5')
         ? `Off-hours mass download on ${event.target} (${firedRules.map(r => r.name).join(', ')})`
         : `Accessed fake security trap: ${event.target} (${firedRules.map(r => r.name).join(', ')})`;
 
-      let incident = await Incident.findOne({
+      incident = await Incident.findOne({
         suspectUsername: event.username,
         status: { $in: ['Open', 'Checking'] }
       });
 
       if (!incident) {
-        await Incident.create({
+        incident = await Incident.create({
           title: `Threat Case: ${event.username} triggered ${firedRules.map(r => r.id).join(', ')}`,
           severity: maxSeverity,
           status: 'Open',
@@ -174,7 +177,10 @@ class RulesEngine {
     return {
       event,
       firedRules,
-      addedScore
+      addedScore,
+      alert: createdAlert,
+      evidenceBlock,
+      incident
     };
   }
 }

@@ -30,7 +30,7 @@ function applyTheme(isDark) {
   document.body.classList.toggle('dark-theme', isDark);
   document.body.classList.toggle('light-theme', !isDark);
   document.getElementById('theme-icon').textContent = isDark ? '🌙' : '☀️';
-  document.getElementById('theme-label').textContent = isDark ? 'Dark Theme' : 'Light Theme';
+  document.getElementById('theme-label').textContent = isDark ? 'Dark' : 'Light';
   localStorage.setItem('deceptiguard_theme', isDark ? 'dark' : 'light');
 }
 
@@ -52,6 +52,12 @@ function setupNavigation() {
     });
   });
 }
+
+// Switches active navigation tab programmatically
+window.navigateToTab = function(tabId) {
+  const tabBtn = document.querySelector(`.nav-tab[data-tab="${tabId}"]`);
+  if (tabBtn) tabBtn.click();
+};
 
 // Binds user switcher modal and persona selection buttons
 function setupUserAuth() {
@@ -148,7 +154,7 @@ async function loadDashboardData() {
 function renderAlertsList(alerts) {
   const tbody = document.getElementById('live-alerts-list');
   if (!alerts || alerts.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No security alerts recorded yet.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="text-align:center; padding:30px;">No security alerts recorded yet.</td></tr>';
     return;
   }
   tbody.innerHTML = alerts.map(a => {
@@ -169,7 +175,7 @@ function renderAlertsList(alerts) {
 function renderLeaderboard(users) {
   const tbody = document.getElementById('risk-leaderboard-body');
   if (!users || users.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No users found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted" style="text-align:center; padding:30px;">No users found.</td></tr>';
     return;
   }
   tbody.innerHTML = users.map(u => {
@@ -203,7 +209,7 @@ async function loadCompanyFiles(query = '') {
     const files = data.files || [];
     const tbody = document.getElementById('files-table-body');
     if (files.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No documents found matching search.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted" style="text-align:center; padding:30px;">No documents found matching search.</td></tr>';
       return;
     }
     tbody.innerHTML = files.map(f => `<tr>
@@ -246,7 +252,7 @@ async function loadTrapsData() {
     const { decoys } = await res.json();
     const tbody = document.getElementById('traps-table-body');
     if (!decoys || decoys.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No deception traps registered.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted" style="text-align:center; padding:30px;">No deception traps registered.</td></tr>';
       return;
     }
     tbody.innerHTML = decoys.map(d => {
@@ -270,10 +276,10 @@ function setupAttacks() {
   });
 }
 
-// Sends attack simulation request and displays formatted results with MTTD
+// Sends attack simulation request and displays formatted results with MTTD and tracker links
 async function runAttackScenario(scenarioId) {
   const box = document.getElementById('attack-result-box');
-  box.textContent = `Executing Scenario ${scenarioId}...`;
+  box.innerHTML = `<span style="color:#F59E0B;">⚡ Running Attack Scenario ${scenarioId}... Analyzing sensor triggers...</span>`;
   try {
     const headers = { 'Content-Type': 'application/json' };
     if (currentUser.token) headers['Authorization'] = `Bearer ${currentUser.token}`;
@@ -284,13 +290,29 @@ async function runAttackScenario(scenarioId) {
       return;
     }
     const rules = (data.rulesFired && data.rulesFired.length > 0) ? data.rulesFired.join(', ') : 'None (No alert)';
+    const blockText = data.evidenceSeq ? `Block #${data.evidenceSeq} (<span style="color:#10B981;">SHA-256: ${data.evidenceHash ? data.evidenceHash.substring(0, 16) + '...' : 'Verified'}</span>)` : 'No evidence block (Benign baseline)';
+    const caseText = data.caseTitle ? `Opened: "${escapeHtml(data.caseTitle)}"` : 'No case opened';
+
     box.innerHTML = `
-      <div><b>Scenario:</b> ${escapeHtml(data.name)} (${data.scenario})</div>
-      <div><b>Who:</b> ${escapeHtml(data.who)}</div>
-      <div><b>What Happened:</b> ${escapeHtml(data.what)}</div>
-      <div><b>Rules Fired:</b> <span class="badge navy">${escapeHtml(rules)}</span></div>
-      <div><b>Penalty Points:</b> <b>+${data.points || 0}</b> pts</div>
-      <div><b>Time to Detect (MTTD):</b> <span style="color:#10B981; font-weight:bold;">${data.mttdMs} ms</span> (Measured)</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+        <div><b>Simulated Attack:</b> <span style="color:#FF5A36; font-weight:700;">${escapeHtml(data.name)} (${data.scenario})</span></div>
+        <div><b>Time to Detect (MTTD):</b> <span style="color:#10B981; font-weight:bold; font-size:14px;">${data.mttdMs} ms</span> <small style="color:#94A3B8;">(Measured)</small></div>
+      </div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-bottom:12px;">
+        <div><small style="color:#94A3B8;">SUSPECT / INITIATOR:</small><br><b>${escapeHtml(data.who)}</b></div>
+        <div><small style="color:#94A3B8;">RULES TRIGGERED:</small><br><span class="badge navy">${escapeHtml(rules)}</span></div>
+        <div><small style="color:#94A3B8;">PENALTY POINTS:</small><br><b>+${data.points || 0} pts</b></div>
+        <div><small style="color:#94A3B8;">EXPECTED OUTCOME:</small><br>${escapeHtml(data.expected)}</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.25); padding:10px 14px; border-radius:6px; border:1px solid rgba(255,255,255,0.05); font-size:12px; line-height:1.7;">
+        <div><b>1. Action Taken:</b> ${escapeHtml(data.what)}</div>
+        <div><b>2. Forensic Hash Ledger:</b> ${blockText}</div>
+        <div><b>3. Case Attribution:</b> ${caseText}</div>
+      </div>
+      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="navigateToTab('dashboard-tab')">📊 Track on Dashboard</button>
+        <button class="btn btn-secondary btn-sm" onclick="navigateToTab('evidence-tab')">🔒 Track in Evidence & Cases</button>
+      </div>
     `;
     loadDashboardData();
     loadTrapsData();
@@ -315,12 +337,12 @@ async function loadEvidenceStatus() {
       banner.style.background = 'rgba(16, 185, 129, 0.15)';
       banner.style.borderColor = '#10B981';
       banner.style.color = '#10B981';
-      banner.textContent = `✅ All ${data.count || 0} blocks are fine`;
+      banner.textContent = `✅ All ${data.count || 0} blocks are fine (SHA-256 Ledger Verified)`;
     } else {
       banner.style.background = 'rgba(239, 68, 68, 0.15)';
       banner.style.borderColor = '#EF4444';
       banner.style.color = '#EF4444';
-      banner.textContent = `❌ Block number ${data.brokenSeq || '?'} was changed`;
+      banner.textContent = `❌ Block number ${data.brokenSeq || '?'} was changed (Data altered - Invalid hash pointer)`;
     }
   } catch (err) { banner.textContent = 'Error checking integrity: ' + err.message; }
 }
@@ -354,7 +376,7 @@ async function loadCasesData() {
     const { incidents } = await res.json();
     const tbody = document.getElementById('cases-table-body');
     if (!incidents || incidents.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No cases open.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="text-align:center; padding:30px;">No cases open.</td></tr>';
       return;
     }
     tbody.innerHTML = incidents.map(inc => {
@@ -364,7 +386,7 @@ async function loadCasesData() {
         <td><b>${escapeHtml(inc.suspectUsername)}</b></td>
         <td><span class="${cls}">${inc.severity}</span></td>
         <td>
-          <select onchange="updateCaseStatus('${inc._id}', this.value)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main);">
+          <select onchange="updateCaseStatus('${inc._id}', this.value)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-main);">
             <option value="Open" ${inc.status === 'Open' ? 'selected' : ''}>Open</option>
             <option value="Checking" ${inc.status === 'Checking' ? 'selected' : ''}>Checking</option>
             <option value="Closed" ${inc.status === 'Closed' ? 'selected' : ''}>Closed</option>
