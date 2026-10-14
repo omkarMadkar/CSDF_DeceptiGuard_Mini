@@ -6,25 +6,25 @@
   <title>DeceptiGuard | Insider Threat Detection Using Deception</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
   <script src="/socket.io/socket.io.js"></script>
 </head>
 <body class="light-theme">
-  <!-- Lab-only Banner -->
-  <div class="compliance-banner">
+  <!-- Top Compliance & Simulation Notice -->
+  <aside class="compliance-banner" aria-label="Simulation Notice">
     <div class="banner-content">
       <div class="compliance-left">
         <span class="shield-badge">🛡️ LAB SIMULATION</span>
-        <span class="compliance-text"><strong>Lab simulation. Fake data only.</strong> Insider Threat Detection Using Deception & Forensics</span>
+        <span class="compliance-text"><strong>Lab simulation. Fake data only.</strong> Insider Threat Detection Using Deception & Digital Forensics</span>
       </div>
       <div class="compliance-right">
         <span class="live-pill" id="ws-status"><span class="pulse-dot"></span> LIVE SYSTEM ACTIVE</span>
       </div>
     </div>
-  </div>
+  </aside>
 
-  <!-- Main Application Header -->
+  <!-- Sticky Application Navigation Header -->
   <header class="app-header">
     <div class="header-left">
       <div class="brand-logo">
@@ -35,30 +35,30 @@
     </div>
 
     <!-- The 5 Simpler Navigation Pages -->
-    <nav class="nav-tabs">
-      <button class="nav-tab active" data-tab="dashboard-tab">
+    <nav class="nav-tabs" aria-label="Main Navigation">
+      <button class="nav-tab active" data-tab="dashboard-tab" id="nav-btn-dashboard">
         <span class="tab-icon">📊</span> Dashboard
       </button>
-      <button class="nav-tab" data-tab="files-tab">
+      <button class="nav-tab" data-tab="files-tab" id="nav-btn-files">
         <span class="tab-icon">📁</span> Company Files
       </button>
-      <button class="nav-tab" data-tab="traps-tab">
+      <button class="nav-tab" data-tab="traps-tab" id="nav-btn-traps">
         <span class="tab-icon">🪤</span> Traps
       </button>
-      <button class="nav-tab" data-tab="attacks-tab">
+      <button class="nav-tab" data-tab="attacks-tab" id="nav-btn-attacks">
         <span class="tab-icon">⚡</span> Test Attacks
       </button>
-      <button class="nav-tab" data-tab="evidence-tab">
-        <span class="tab-icon">🔒</span> Evidence and Cases
+      <button class="nav-tab" data-tab="evidence-tab" id="nav-btn-evidence">
+        <span class="tab-icon">🔒</span> Evidence &amp; Cases
       </button>
     </nav>
 
     <!-- Header Controls: Theme toggle and User Switch Chip -->
     <div class="header-right">
       <button class="btn btn-secondary btn-sm" id="btn-theme-toggle" title="Switch Theme (Light / Dark)">
-        <span id="theme-icon">☀️</span> <span id="theme-label">Light Theme</span>
+        <span id="theme-icon">☀️</span> <span id="theme-label">Light</span>
       </button>
-      <div class="user-chip" id="btn-switch-user" title="Click to Switch User">
+      <div class="user-chip" id="btn-switch-user" title="Click to Switch User Persona">
         <span class="role-badge" id="current-user-role">admin</span>
         <span class="username-text" id="current-username">onkar</span>
         <span class="chevron">▾</span>
@@ -66,44 +66,44 @@
     </div>
   </header>
 
-  <!-- Main Container -->
+  <!-- Main Application Body -->
   <main class="main-container">
 
     <!-- ================= PAGE 1: DASHBOARD ================= -->
     <section id="dashboard-tab" class="tab-content active">
-      <!-- 4 Number Cards -->
+      <!-- 4 Number KPI Cards -->
       <div class="kpi-grid">
         <div class="kpi-card highlight-coral">
-          <div class="kpi-label">TOTAL ALERTS</div>
+          <div class="kpi-label">TOTAL THREAT ALERTS</div>
           <div class="kpi-value text-coral" id="stat-alerts">0</div>
-          <div class="kpi-sub">Rule Breaches Detected</div>
+          <div class="kpi-sub">Rule Breaches &amp; Decoy Triggers</div>
         </div>
         <div class="kpi-card highlight-gold">
-          <div class="kpi-label">CRITICAL ALERTS</div>
+          <div class="kpi-label">CRITICAL SEVERITY</div>
           <div class="kpi-value text-coral glow" id="stat-critical">0</div>
-          <div class="kpi-sub">High Confidence Traps</div>
+          <div class="kpi-sub">Autonomous Case Triggers</div>
         </div>
         <div class="kpi-card highlight-navy">
           <div class="kpi-label">OPEN CASES</div>
-          <div class="kpi-value text-gold" id="stat-cases">0</div>
+          <div class="kpi-value text-navy" id="stat-cases">0</div>
           <div class="kpi-sub">Cases Under Review</div>
         </div>
         <div class="kpi-card highlight-emerald">
           <div class="kpi-label">TRAPS TOUCHED</div>
-          <div class="kpi-value text-navy" id="stat-traps">0</div>
-          <div class="kpi-sub">Deception Hits Recorded</div>
+          <div class="kpi-value text-emerald" id="stat-traps">0</div>
+          <div class="kpi-sub">Active Deception Interceptions</div>
         </div>
       </div>
 
-      <!-- Dashboard Grid: Live Alert List + Risk Scores -->
+      <!-- Dashboard Two-Column Grid: Alerts Feed + Risk Scores -->
       <div class="soc-grid">
-        <!-- Live Alert Feed -->
+        <!-- Live Alerts Table Panel -->
         <div class="panel">
           <div class="panel-header">
             <div class="panel-title">
               <span class="icon">🚨</span> Live Threat Alerts Feed
             </div>
-            <span class="badge coral">REAL-TIME</span>
+            <span class="badge coral">REAL-TIME INGESTION</span>
           </div>
           <div class="table-container" style="max-height: 480px; overflow-y: auto;">
             <table class="data-table">
@@ -118,13 +118,13 @@
                 </tr>
               </thead>
               <tbody id="live-alerts-list">
-                <tr><td colspan="6" class="text-center text-muted">Loading live alerts...</td></tr>
+                <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding: 30px;">Loading live alerts...</td></tr>
               </tbody>
             </table>
           </div>
         </div>
 
-        <!-- Risk Score List -->
+        <!-- Risk Scores Leaderboard Panel -->
         <div class="panel">
           <div class="panel-header">
             <div class="panel-title">
@@ -143,7 +143,7 @@
                 </tr>
               </thead>
               <tbody id="risk-leaderboard-body">
-                <tr><td colspan="4" class="text-center text-muted">Loading risk scores...</td></tr>
+                <tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding: 30px;">Loading risk scores...</td></tr>
               </tbody>
             </table>
           </div>
@@ -158,8 +158,8 @@
           <div class="panel-title">
             <span class="icon">📂</span> Corporate Document Repository
           </div>
-          <div class="search-box-wrap" style="display:flex; gap:8px;">
-            <input type="text" id="portal-search-input" class="search-input" placeholder="Search company documents..." style="padding:8px 12px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-main); width:280px;">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <input type="text" id="portal-search-input" placeholder="Search company documents..." style="padding:8px 14px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-surface); color:var(--text-main); font-size:13px; min-width:240px;">
             <button class="btn btn-secondary btn-sm" id="btn-search-files">Search</button>
           </div>
         </div>
@@ -167,7 +167,7 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>File Name</th>
+                <th>Document Name</th>
                 <th>Department</th>
                 <th>Classification</th>
                 <th>Size</th>
@@ -175,7 +175,7 @@
               </tr>
             </thead>
             <tbody id="files-table-body">
-              <tr><td colspan="5" class="text-center text-muted">Loading corporate files...</td></tr>
+              <tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding: 30px;">Loading corporate files...</td></tr>
             </tbody>
           </table>
         </div>
@@ -197,13 +197,13 @@
               <tr>
                 <th>Trap Name</th>
                 <th>Type</th>
-                <th>Location / Identifier</th>
+                <th>Location / Address</th>
                 <th>Times Touched</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody id="traps-table-body">
-              <tr><td colspan="5" class="text-center text-muted">Loading deception traps...</td></tr>
+              <tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding: 30px;">Loading deception traps...</td></tr>
             </tbody>
           </table>
         </div>
@@ -217,35 +217,72 @@
           <div class="panel-title">
             <span class="icon">⚡</span> 5 Test Attack Scenarios
           </div>
-          <span class="badge coral">ADMIN ONLY</span>
+          <span class="badge coral">ADMIN ONLY SIMULATOR</span>
         </div>
-        <div style="padding: 20px;">
-          <p class="text-muted" style="margin-bottom: 18px;">Click any scenario button to simulate an insider attack and verify detection rules:</p>
-          
-          <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px;">
-            <button class="btn btn-primary" id="btn-attack-s1">
-              1. Curious Intern (samarth opens salary trap)
-            </button>
-            <button class="btn btn-primary" id="btn-attack-s2">
-              2. Fake Admin Login (admin.backup probe)
-            </button>
-            <button class="btn btn-primary" id="btn-attack-s3">
-              3. Night Download (aniket downloads 12 files at 2 AM)
-            </button>
-            <button class="btn btn-primary" id="btn-attack-s4">
-              4. Stolen Key (pranav searches fake key)
-            </button>
-            <button class="btn btn-secondary" id="btn-attack-s5">
-              5. Normal Day (mugdha opens allowed file at 11 AM)
-            </button>
+
+        <p style="color:var(--text-muted); margin-bottom: 16px; font-size: 13.5px;">Click any scenario card below to trigger simulated insider attacks and verify detection rules:</p>
+
+        <!-- 5 Attack Scenario Cards Grid -->
+        <div class="attacks-grid">
+          <div class="attack-card-btn" id="btn-attack-s1" role="button" tabindex="0">
+            <div class="attack-title">
+              <span>1. Curious Intern</span>
+              <span class="badge coral">R1</span>
+            </div>
+            <div class="attack-sub"><strong>samarth</strong> opens executive salary trap file</div>
+            <div class="attack-expected"><span class="badge coral">Critical Alert (+100 pts)</span></div>
           </div>
 
-          <!-- Result Display Box -->
-          <div class="panel" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 18px; border-radius: 8px;">
-            <h4 style="margin-top: 0; color: var(--accent-primary);">Simulation Execution Result</h4>
-            <div id="attack-result-box" style="font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.6; color: var(--text-main);">
-              Ready. Click a scenario button above to execute test.
+          <div class="attack-card-btn" id="btn-attack-s2" role="button" tabindex="0">
+            <div class="attack-title">
+              <span>2. Fake Admin Login</span>
+              <span class="badge coral">R2, R1</span>
             </div>
+            <div class="attack-sub"><strong>admin.backup</strong> logs in &amp; probes trap address</div>
+            <div class="attack-expected"><span class="badge coral">Critical Alerts (+190 pts)</span></div>
+          </div>
+
+          <div class="attack-card-btn" id="btn-attack-s3" role="button" tabindex="0">
+            <div class="attack-title">
+              <span>3. Night Download</span>
+              <span class="badge gold">R4, R5</span>
+            </div>
+            <div class="attack-sub"><strong>aniket</strong> downloads 12 files at 2:00 AM</div>
+            <div class="attack-expected"><span class="badge gold">High Alert (+45 pts)</span></div>
+          </div>
+
+          <div class="attack-card-btn" id="btn-attack-s4" role="button" tabindex="0">
+            <div class="attack-title">
+              <span>4. Stolen Key</span>
+              <span class="badge coral">R3</span>
+            </div>
+            <div class="attack-sub"><strong>pranav</strong> searches fake canary token</div>
+            <div class="attack-expected"><span class="badge coral">Critical Alert (+100 pts)</span></div>
+          </div>
+
+          <div class="attack-card-btn benign" id="btn-attack-s5" role="button" tabindex="0">
+            <div class="attack-title">
+              <span>5. Normal Day</span>
+              <span class="badge emerald">BENIGN</span>
+            </div>
+            <div class="attack-sub"><strong>mugdha</strong> opens allowed policy document at 11 AM</div>
+            <div class="attack-expected"><span class="badge emerald">NO Alert (0% False Positives)</span></div>
+          </div>
+        </div>
+
+        <!-- Terminal Output Console -->
+        <div class="terminal-box">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span class="terminal-dot red"></span>
+              <span class="terminal-dot yellow"></span>
+              <span class="terminal-dot green"></span>
+            </div>
+            <div class="terminal-title">SIMULATION EXECUTION CONSOLE</div>
+            <span class="badge navy" style="font-size: 9.5px;">ISO/IEC 27037</span>
+          </div>
+          <div class="terminal-body" id="attack-result-box">
+            Ready. Click a test attack card above to run a simulation and measure time-to-detect.
           </div>
         </div>
       </div>
@@ -254,26 +291,25 @@
     <!-- ================= PAGE 5: EVIDENCE AND CASES ================= -->
     <section id="evidence-tab" class="tab-content">
       <!-- Evidence Integrity Toolbar -->
-      <div class="panel" style="margin-bottom: 20px;">
+      <div class="panel">
         <div class="panel-header">
           <div class="panel-title">
             <span class="icon">🔒</span> Digital Evidence Chain (SHA-256 Ledger)
           </div>
-          <div style="display: flex; gap: 10px;">
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
             <button class="btn btn-primary btn-sm" id="btn-check-evidence">Check Evidence</button>
             <button class="btn btn-danger btn-sm" id="btn-tamper-test">Tamper Test <small>(Lab only)</small></button>
             <button class="btn btn-secondary btn-sm" id="btn-fix-evidence">Fix Evidence <small>(Lab only)</small></button>
           </div>
         </div>
-        <div style="padding: 16px;">
-          <!-- Evidence Status Banner -->
-          <div id="evidence-status-banner" style="padding: 14px 18px; border-radius: 6px; font-weight: 600; font-family: 'JetBrains Mono', monospace; background: var(--bg-card); border: 1px solid var(--border-color);">
-            Click "Check Evidence" to verify cryptographic integrity of the hash chain.
-          </div>
+
+        <!-- Status Banner -->
+        <div id="evidence-status-banner" style="padding: 14px 18px; border-radius: var(--radius-sm); font-weight: 600; font-family: 'JetBrains Mono', monospace; font-size: 13.5px; border: 1px solid var(--border-color); background: var(--bg-surface-elevated); transition: all 0.25s ease;">
+          Click "Check Evidence" to verify cryptographic integrity of the hash chain.
         </div>
       </div>
 
-      <!-- Incident Cases Table with Status Dropdown and Download PDF -->
+      <!-- Cases Table Panel -->
       <div class="panel">
         <div class="panel-header">
           <div class="panel-title">
@@ -294,7 +330,7 @@
               </tr>
             </thead>
             <tbody id="cases-table-body">
-              <tr><td colspan="6" class="text-center text-muted">Loading cases...</td></tr>
+              <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding: 30px;">Loading cases...</td></tr>
             </tbody>
           </table>
         </div>
@@ -305,38 +341,56 @@
 
   <!-- ================= MODALS ================= -->
 
-  <!-- 1. Switch User Modal (6 Users Only) -->
+  <!-- 1. Switch User Persona Modal (6 Accounts) -->
   <div class="modal-backdrop" id="user-modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Switch Lab User</h3>
-        <button class="btn-close" id="btn-close-modal">&times;</button>
+        <h3>Switch Lab Persona</h3>
+        <button class="btn-close" id="btn-close-modal" aria-label="Close modal">&times;</button>
       </div>
-      <p class="modal-desc" style="margin-bottom: 16px; color: var(--text-muted);">Select one of the 6 accounts to switch your active session:</p>
-      <div class="persona-list" style="display:flex; flex-direction:column; gap:8px;">
+      <div class="persona-list">
+        <p style="color:var(--text-muted); font-size: 12.5px; margin-bottom: 6px;">Select an employee to switch session (all use password: <code>Password123!</code>):</p>
         <button class="persona-btn" data-user="onkar">
-          <span class="p-role badge navy">ADMIN</span>
-          <b>onkar</b> (IT Admin - Full Access)
+          <div>
+            <b>onkar</b>
+            <div style="font-size: 11.5px; color:var(--text-muted);">IT Lead &amp; Security Administrator</div>
+          </div>
+          <span class="role-badge">ADMIN</span>
         </button>
         <button class="persona-btn" data-user="mugdha">
-          <span class="p-role badge gold">HR</span>
-          <b>mugdha</b> (HR Specialist - Benign baseline)
+          <div>
+            <b>mugdha</b>
+            <div style="font-size: 11.5px; color:var(--text-muted);">HR Specialist (Benign Employee Baseline)</div>
+          </div>
+          <span class="badge gold">HR</span>
         </button>
         <button class="persona-btn" data-user="samarth">
-          <span class="p-role badge gold">INTERN</span>
-          <b>samarth</b> (Engineering Intern - Honeyfile target)
+          <div>
+            <b>samarth</b>
+            <div style="font-size: 11.5px; color:var(--text-muted);">Engineering Intern (Honeyfile Target)</div>
+          </div>
+          <span class="badge navy">INTERN</span>
         </button>
         <button class="persona-btn" data-user="aniket">
-          <span class="p-role badge gold">ENGINEER</span>
-          <b>aniket</b> (Senior Engineer - Off-hours exfil)
+          <div>
+            <b>aniket</b>
+            <div style="font-size: 11.5px; color:var(--text-muted);">Senior Kernel Engineer (Off-hours Exfiltration)</div>
+          </div>
+          <span class="badge navy">ENGINEER</span>
         </button>
         <button class="persona-btn" data-user="pranav">
-          <span class="p-role badge gold">FINANCE</span>
-          <b>pranav</b> (Finance Analyst - Canary key target)
+          <div>
+            <b>pranav</b>
+            <div style="font-size: 11.5px; color:var(--text-muted);">Finance Analyst (Canary Key Replay Target)</div>
+          </div>
+          <span class="badge gold">FINANCE</span>
         </button>
         <button class="persona-btn decoy-user" data-user="admin.backup">
-          <span class="p-role badge coral">FAKE ADMIN (TRAP)</span>
-          <b>admin.backup</b> [Triggers Rule R2 on login]
+          <div>
+            <b style="color:var(--coral-500);">admin.backup</b>
+            <div style="font-size: 11.5px; color:var(--coral-500);">Decoy Administrator Account (Trap - Triggers Rule R2)</div>
+          </div>
+          <span class="badge coral">TRAP ACCOUNT</span>
         </button>
       </div>
     </div>
@@ -347,11 +401,13 @@
     <div class="modal-content doc-modal-content">
       <div class="modal-header">
         <h3 id="doc-modal-title">Document Viewer</h3>
-        <button class="btn-close" id="btn-close-doc-modal">&times;</button>
+        <button class="btn-close" id="btn-close-doc-modal" aria-label="Close document modal">&times;</button>
       </div>
-      <div class="modal-body" style="padding: 16px;">
-        <div class="doc-meta-bar" id="doc-modal-meta" style="margin-bottom: 12px; font-size: 12px; color: var(--text-muted);">Path: / | Classification: Internal</div>
-        <pre class="doc-text" id="doc-modal-content" style="background: var(--bg-terminal); color: #E2E8F0; padding: 14px; border-radius: 6px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 13px;">Loading file content...</pre>
+      <div style="padding: 18px 22px;">
+        <div id="doc-modal-meta" style="margin-bottom: 12px; font-size: 12px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">
+          Path: / | Classification: Internal
+        </div>
+        <pre id="doc-modal-content" style="background: var(--bg-terminal); color: #E2E8F0; padding: 16px; border-radius: var(--radius-sm); overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6; border: 1px solid rgba(255, 255, 255, 0.08);">Loading document content...</pre>
       </div>
     </div>
   </div>
